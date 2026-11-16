@@ -1,0 +1,129 @@
+cnpj,rodovia,trecho_id,tipo_servico,tipo_recurso,tipo_parametro,valor
+44319688000142,101,,Mecânico,Motocicleta,1,40
+44319688000142,101,,Mecânico,Guincho Leve,1,40
+44319688000142,101,,Mecânico,Guincho Pesado,1,75
+44319688000142,116,,Mecânico,Motocicleta,1,15
+44319688000142,116,,Mecânico,Guincho Leve,1,15
+44319688000142,116,,Mecânico,Guincho Pesado,1,40
+44319688000142,101,,Médico,Ambulância C,1,15
+44319688000142,101,,Médico,Ambulância D,1,60
+44319688000142,116,,Médico,Ambulância C,1,15
+44319688000142,116,,Médico,Ambulância D,1,15
+29884545000190,116,,Mecânico,Motocicleta,1,15
+29884545000190,116,,Mecânico,Guincho Leve,1,15
+29884545000190,116,,Mecânico,Guincho Pesado,1,75
+29884545000190,,,Mecânico,Motocicleta,1,40
+29884545000190,,,Mecânico,Guincho Leve,1,40
+29884545000190,,,Mecânico,Guincho Pesado,1,75
+29884545000190,116,,Médico,Ambulância D,1,15
+29884545000190,465,,Médico,Ambulância C,1,15
+29884545000190,,,Médico,Ambulância C,1,15
+29884545000190,,,Médico,Ambulância D,1,60
+15090690000194,80,,Mecânico,Motocicleta,1,60
+15090690000194,80,,Mecânico,Guincho Leve,1,60
+15090690000194,80,,Mecânico,Guincho Pesado,1,90
+15090690000194,153,,Mecânico,Motocicleta,1,40
+15090690000194,153,,Mecânico,Guincho Leve,1,40
+15090690000194,153,,Mecânico,Guincho Pesado,1,75
+15090690000194,414,,Mecânico,Motocicleta,1,60
+15090690000194,414,,Mecânico,Guincho Leve,1,60
+15090690000194,414,,Mecânico,Guincho Pesado,1,90
+15090690000194,80,,Médico,Ambulância C,1,20
+15090690000194,153,,Médico,Ambulância C,1,15
+15090690000194,153,,Médico,Ambulância D,1,60
+15090690000194,414,,Médico,Ambulância C,1,20
+35593905000105,,,Mecânico,Guincho Leve,1,60
+35593905000105,,,Mecânico,Guincho Pesado,1,90
+35593905000105,,,Médico,Ambulância C,1,20
+51137031000120,,,Mecânico,Motocicleta,1,120
+51137031000120,,,Mecânico,Guincho Leve,1,40
+51137031000120,,,Mecânico,Guincho Pesado,1,75
+51137031000120,,,Médico,Ambulância C,1,15
+51137031000120,,,Médico,Ambulância D,1,60
+47155252000153,,,Mecânico,Motocicleta,1,40
+47155252000153,,,Mecânico,Guincho Leve,1,40
+47155252000153,,,Mecânico,Guincho Pesado,1,75
+47155252000153,,,Médico,Ambulância C,1,15
+47155252000153,,,Médico,Ambulância D,1,60
+44067725000172,,,Mecânico,Guincho Leve,1,120
+44067725000172,,,Mecânico,Guincho Pesado,1,150
+44067725000172,,,Médico,Ambulância C,1,120
+44067725000172,,,Médico,Ambulância D,1,120
+36763716000198,,,Mecânico,Motocicleta,3,40
+36763716000198,,,Mecânico,Guincho Leve,3,40
+36763716000198,,,Mecânico,Guincho Pesado,3,75
+36763716000198,,,Médico,Ambulância C,3,15
+36763716000198,,,Médico,Ambulância D,3,60
+55231969000165,,,Mecânico,Motocicleta,1,40
+55231969000165,,,Mecânico,Guincho Leve,1,40
+55231969000165,,,Mecânico,Guincho Pesado,1,75
+55231969000165,,,Médico,Ambulância C,1,15
+55231969000165,,,Médico,Ambulância D,1,60
+32161500000100,,,Mecânico,Motocicleta,3,40
+32161500000100,,,Mecânico,Guincho Leve,3,40
+32161500000100,,,Mecânico,Guincho Pesado,3,75
+32161500000100,,,Médico,Ambulância C,3,15
+32161500000100,,,Médico,Ambulância D,3,60
+44319688000142,101,,Mecânico,Motocicleta,2,80
+44319688000142,101,,Mecânico,Guincho Leve,2,80
+44319688000142,101,,Mecânico,Guincho Pesado,2,150
+44319688000142,116,,Mecânico,Motocicleta,2,30
+44319688000142,116,,Mecânico,Guincho Leve,2,30
+44319688000142,116,,Mecânico,Guincho Pesado,2,80
+44319688000142,101,,Médico,Ambulância C,2,30
+44319688000142,101,,Médico,Ambulância D,2,120
+44319688000142,116,,Médico,Ambulância C,2,30
+44319688000142,116,,Médico,Ambulância D,2,30
+29884545000190,116,,Mecânico,Motocicleta,2,30
+29884545000190,116,,Mecânico,Guincho Leve,2,30
+29884545000190,116,,Mecânico,Guincho Pesado,2,150
+29884545000190,,,Mecânico,Motocicleta,2,80
+29884545000190,,,Mecânico,Guincho Leve,2,80
+29884545000190,,,Mecânico,Guincho Pesado,2,150
+29884545000190,116,,Médico,Ambulância D,2,30
+29884545000190,465,,Médico,Ambulância C,2,30
+29884545000190,,,Médico,Ambulância C,2,30
+29884545000190,,,Médico,Ambulância D,2,120
+15090690000194,80,,Mecânico,Motocicleta,2,120
+15090690000194,80,,Mecânico,Guincho Leve,2,120
+15090690000194,80,,Mecânico,Guincho Pesado,2,180
+15090690000194,153,,Mecânico,Motocicleta,2,80
+15090690000194,153,,Mecânico,Guincho Leve,2,80
+15090690000194,153,,Mecânico,Guincho Pesado,2,150
+15090690000194,414,,Mecânico,Motocicleta,2,120
+15090690000194,414,,Mecânico,Guincho Leve,2,120
+15090690000194,414,,Mecânico,Guincho Pesado,2,180
+15090690000194,80,,Médico,Ambulância C,2,40
+15090690000194,153,,Médico,Ambulância C,2,30
+15090690000194,153,,Médico,Ambulância D,2,120
+15090690000194,414,,Médico,Ambulância C,2,40
+35593905000105,,,Mecânico,Guincho Leve,2,120
+35593905000105,,,Mecânico,Guincho Pesado,2,180
+35593905000105,,,Médico,Ambulância C,2,40
+51137031000120,,,Mecânico,Motocicleta,2,240
+51137031000120,,,Mecânico,Guincho Leve,2,40
+51137031000120,,,Mecânico,Guincho Pesado,2,75
+51137031000120,,,Médico,Ambulância C,2,30
+51137031000120,,,Médico,Ambulância D,2,120
+47155252000153,,,Mecânico,Motocicleta,2,80
+47155252000153,,,Mecânico,Guincho Leve,2,80
+47155252000153,,,Mecânico,Guincho Pesado,2,150
+47155252000153,,,Médico,Ambulância C,2,30
+47155252000153,,,Médico,Ambulância D,2,120
+44067725000172,,,Mecânico,Guincho Leve,2,240
+44067725000172,,,Mecânico,Guincho Pesado,2,300
+44067725000172,,,Médico,Ambulância C,2,240
+44067725000172,,,Médico,Ambulância D,2,240
+55231969000165,,,Mecânico,Motocicleta,2,80
+55231969000165,,,Mecânico,Guincho Leve,2,80
+55231969000165,,,Mecânico,Guincho Pesado,2,150
+55231969000165,,,Médico,Ambulância C,2,30
+55231969000165,,,Médico,Ambulância D,2,120
+29884545000190,,1,Mecânico,Motocicleta,1,15
+29884545000190,,1,Mecânico,Motocicleta,2,30
+29884545000190,,1,Mecânico,Guincho Leve,1,15
+29884545000190,,1,Mecânico,Guincho Leve,2,30
+29884545000190,,1,Mecânico,Guincho Pesado,1,75
+29884545000190,,1,Mecânico,Guincho Pesado,2,150
+29884545000190,,1,Médico,Ambulância D,1,15
+29884545000190,,1,Médico,Ambulância D,2,30

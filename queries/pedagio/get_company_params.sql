@@ -1,0 +1,14 @@
+-- IN parameters: cnpj (string)
+-- OUT fields: NU_CNPJ (string), CD_TIPO_INTERRUPCAO (UInt8), VL_TEMPO_MAX_INTERRUPCAO (UInt16), VL_PCT_MAX_INTERRUPCAO (Float32), CD_DEPLOY_ID (UInt16), DT_DEPLOY_TIMESTAMP (DateTime) 
+SELECT
+    *
+FROM BD_PER.TB_PARAMETROS_PEDAGIO
+WHERE NU_CNPJ = '{cnpj}'
+AND CD_DEPLOY_ID = (
+    SELECT
+        MAX(CD_DEPLOY_ID)
+    FROM
+        BD_PER.TB_PARAMETROS_PEDAGIO
+    WHERE
+        NU_CNPJ = '{cnpj}'
+)

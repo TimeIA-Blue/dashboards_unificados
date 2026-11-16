@@ -1,0 +1,18 @@
+[theme]
+base = "dark"
+
+# Widgets
+showWidgetBorder = true
+borderColor = "#314158"
+
+# Base text
+baseFontWeight = 500
+baseFontSize = 16
+
+# Heading text
+headingFont = "Space Grotesk"
+headingFontWeights = [300, 400, 400, 300, 300, 300]
+headingFontSizes = ["2.5rem", "1.5rem", "1rem"]
+
+[server]
+headless = true
