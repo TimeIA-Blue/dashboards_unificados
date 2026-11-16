@@ -148,13 +148,13 @@ with tabData:
                 data=go.Bar(
                     x=["Região", "Total"],
                     y=[stats_data["avgInRegion"], stats_data["avgTotal"]],
-                    error_y=dict(
-                        type="data",
-                        symmetric=False,
-                        array=upper_errors,
-                        arrayminus=lower_errors,
-                        visible=True,
-                    ),
+                    error_y={
+                        "type": "data",
+                        "symmetric": False,
+                        "array": upper_errors,
+                        "arrayminus": lower_errors,
+                        "visible": True,
+                    },
                     marker_color=["#1f77b4", "#2ca02c"],
                 )
             )
@@ -201,9 +201,9 @@ with tabAnomalies:
         v: k for k, v in DICT_CHAVE_VISUALIZACAO.items() if v != used_key[1]
     }
     base_dict_rename["COUNT_TOTAL"] = "Número de registros"
-    hover_data = set(
-        [*DICT_CHAVE_VISUALIZACAO.keys(), "Número de registros"]
-    ).difference(used_key[1])
+    hover_data = {*DICT_CHAVE_VISUALIZACAO.keys(), "Número de registros"}.difference(
+        used_key[1]
+    )
     fig = plot_h3_map(
         filtered_data,
         h3_col="h3",

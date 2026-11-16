@@ -3,14 +3,14 @@ from datetime import tzinfo
 from json import dumps
 from random import randint
 from time import time
-from typing import Any, Literal, Optional, Union
+from typing import Any
 
 import numpy as np
 import streamlit as st
 from clickhouse_connect.driver.exceptions import OperationalError
 from clickhouse_connect.driver.external import ExternalData
 from clickhouse_connect.driver.httpclient import HttpClient
-from clickhouse_connect.driver.query import QueryContext
+from clickhouse_connect.driver.query import QueryContext, TzMode
 from pandas import DataFrame
 
 from constants import RANDOM_SAMPLING_QUERY_PERCENTAGE, SLOW_QUERY_THRESHOLD_SECONDS
@@ -86,11 +86,11 @@ class LoggingClient(HttpClient):
         use_na_values: bool | None = None,
         query_tz: str | None = None,
         column_tzs: dict[str, str | tzinfo] | None = None,
-        utc_tz_aware: bool | Literal["schema"] | None = None,
-        context: QueryContext = None,  # ty: ignore[invalid-parameter-default]
+        context: QueryContext | None = None,
         external_data: ExternalData | None = None,
         use_extended_dtypes: bool | None = None,
         transport_settings: dict[str, str] | None = None,
+        tz_mode: TzMode | None = None,
     ) -> DataFrame:
         start_time = time()
         result = super().query_df(
@@ -105,11 +105,11 @@ class LoggingClient(HttpClient):
             use_na_values,
             query_tz,
             column_tzs,
-            utc_tz_aware,
             context,
             external_data,
             use_extended_dtypes,
             transport_settings,
+            tz_mode,
         )
         end_time = time()
         self._handle_client_log(start_time, end_time, query or "")
@@ -121,11 +121,11 @@ def ch_client() -> LoggingClient:
         return st.session_state["ch_client"]
 
     client_config = {
-        "host": st.secrets.clickhouse.host,  # pyright: ignore[reportAny]
-        "port": st.secrets.clickhouse.port,  # pyright: ignore[reportAny
-        "username": st.secrets.clickhouse.username,  # pyright: ignore[reportAny]
-        "password": st.secrets.clickhouse.password,  # pyright: ignore[reportAny]
-        "database": st.secrets.clickhouse.database,  # pyright: ignore[reportAny]
+        "host": st.secrets.clickhouse.host,
+        "port": st.secrets.clickhouse.port,
+        "username": st.secrets.clickhouse.username,
+        "password": st.secrets.clickhouse.password,
+        "database": st.secrets.clickhouse.database,
     }
     try:
         # TODO: Configure certificate reading
@@ -148,7 +148,7 @@ def ch_client() -> LoggingClient:
                 "error": str(e),
             }
         )
-        raise e
+        raise
 
     st.session_state["ch_client"] = client
     return client

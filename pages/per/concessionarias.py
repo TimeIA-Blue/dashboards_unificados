@@ -105,7 +105,7 @@ def save_data():
                     text("DELETE FROM concessionaria WHERE cnpj = :cnpj"),
                     {"cnpj": cnpj},
                 )
-            except Exception as e:
+            except Exception as _e:  # noqa: BLE001
                 st.error(
                     f"Erro ao remover concessionária de CNPJ {cnpj}.\n\nUma concessionária só pode ser removida se não estiver associada a nenhum outro registro.\n\nAtualize a página para reverter os dados."
                 )

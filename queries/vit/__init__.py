@@ -18,6 +18,7 @@ class VitQueries(TypedDict):
     :return : DataFrame["QT_CONTAGEM" (UInt64)]
     """
 
+
 AVAILABLE_VIT_QUERIES: Final[VitQueries] = {
     "get_total_count": Path("queries", "vit", "get_total_count.sql"),
 }
@@ -29,9 +30,7 @@ def load_vit_data():
     genericas = loaded_client.query_df(
         "SELECT DS_PLACA FROM BD_RAW_INTERNO.TB_PLACAS_GENERICAS"
     )["DS_PLACA"].tolist()
-    Veiculos = loaded_client.query_df(
-        "SELECT * FROM BD_ANALYTICS_SIR.V_VIT_CADASTRO v"
-    )
+    Veiculos = loaded_client.query_df("SELECT * FROM BD_ANALYTICS_SIR.V_VIT_CADASTRO v")
     Veiculos = Veiculos.drop(columns="NO_FANTASIA")
     Veiculos = Veiculos[~Veiculos["DS_PLACA"].isin(genericas)]
 
@@ -54,9 +53,15 @@ def get_vehicle_counts(cnpj: str):
     _, CountsGlobal, count_per = load_vit_data()
     count_per_cnpj = count_per.loc[count_per["NU_CNPJ"] == cnpj, "QT_VIT"]
     CountsGlobal_cnpj = CountsGlobal.loc[CountsGlobal["NU_CNPJ"] == cnpj]
-    qtd_min = 0 if (len(count_per_cnpj) == 0) else count_per_cnpj.values[0]        
-    qtd_cadastro = 0 if (len(CountsGlobal_cnpj) == 0) else CountsGlobal_cnpj["QT_CADASTRADO"].values[0]
-    qtd_visto = 0 if (len(CountsGlobal_cnpj) == 0) else CountsGlobal_cnpj["QT_VISTO"].values[0]
+    qtd_min = 0 if (len(count_per_cnpj) == 0) else count_per_cnpj.values[0]
+    qtd_cadastro = (
+        0
+        if (len(CountsGlobal_cnpj) == 0)
+        else CountsGlobal_cnpj["QT_CADASTRADO"].values[0]
+    )
+    qtd_visto = (
+        0 if (len(CountsGlobal_cnpj) == 0) else CountsGlobal_cnpj["QT_VISTO"].values[0]
+    )
     return qtd_min, qtd_cadastro, qtd_visto
 
 
@@ -199,11 +204,11 @@ def get_company_eval(cnpj, date_range: tuple[date, date]):
             months[row["DT_MES"]].append({"tipo_param": row["tipo"], "cumpriu": "-"})
             continue
 
-    for month in months.keys():
+    for month, val in months.items():
         # if all is Não, add to none
         # elif if all is Sim, add to all
         # else, add to partial
-        month_checks = [m["cumpriu"] for m in months[month]]
+        month_checks = [m["cumpriu"] for m in val]
         if all(c == "Não" for c in month_checks):
             checks["none"].append(month)
             continue
@@ -213,8 +218,8 @@ def get_company_eval(cnpj, date_range: tuple[date, date]):
         checks["partial"].append(month)
 
     # formatting months as MM/YYYY
-    for key in checks.keys():
-        checks[key] = [f"{m[5:7]}/{m[0:4]}" for m in checks[key]]
+    for key, value in checks.items():
+        checks[key] = [f"{m[5:7]}/{m[0:4]}" for m in value]
 
     # pegando os dados de atrasos
     atrasos = df_atrasos[df_atrasos["NU_CNPJ"] == cnpj].copy()

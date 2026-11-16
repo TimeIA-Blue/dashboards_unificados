@@ -1,4 +1,4 @@
-from logging import Formatter, Logger, StreamHandler
+from logging import Formatter, StreamHandler, getLogger
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from sys import stdout
@@ -13,7 +13,7 @@ JSON_QUERIES_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 @st.cache_resource
 def get_general_logger():
-    log = Logger("streamlit_app_logger")
+    log = getLogger("streamlit_app_logger")
     stdout_handler = StreamHandler(stdout)
 
     if not GENERAL_LOG_PATH.is_file():
@@ -32,7 +32,7 @@ def get_general_logger():
 
 @st.cache_resource
 def get_query_logger():
-    log = Logger("query_logger")
+    log = getLogger("query_logger")
     if not JSON_QUERIES_PATH.is_file():
         JSON_QUERIES_PATH.touch()
     file_handler = RotatingFileHandler(

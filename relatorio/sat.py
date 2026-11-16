@@ -15,6 +15,7 @@ from queries import get_query_result
 from queries.sat import AVAILABLE_SAT_QUERIES, SAT_GET_AVAILABLE_COMPANIES
 from relatorio import GetGapsReturnDict
 from relatorio.reporter import SubReporter, SubReportSection
+from spotfire import format_seconds
 
 VERIFY_SAT_AGREEMENT_EXPR = (
     pl.when(pl.col("CD_TIPO_INTERRUPCAO").is_in([2, 3, 5]))
@@ -47,13 +48,6 @@ STATUS_CODE_TO_STR = {
     0: "Não verificado",
     1: "Sim",
 }
-
-
-def format_seconds(seconds: int):
-    hours = seconds // 3600
-    minutes = (seconds % 3600) // 60
-    secs = seconds % 60
-    return f"{hours:02d}h{minutes:02d}m{secs:02d}s"
 
 
 @st.cache_data
@@ -99,17 +93,17 @@ def get_gaps(
     t["is_zero"] = t["QT_CONTAGEM"] == 0
     t["group"] = (t["is_zero"] != t["is_zero"].shift()).cumsum()
 
-    min_date: pd.Timestamp = t["DT_DIA"].min()  # pyright: ignore[reportAny]
-    max_date: pd.Timestamp = t["DT_DIA"].max()  # pyright: ignore[reportAny]
+    min_date: pd.Timestamp = t["DT_DIA"].min()
+    max_date: pd.Timestamp = t["DT_DIA"].max()
 
     where_zero: DataFrame = t[t["is_zero"]]
     gaps = (
-        where_zero.groupby("group")  # pyright: ignore[reportUnknownMemberType]
+        where_zero.groupby("group")
         .agg(start=("DT_DIA", "min"), end=("DT_DIA", "max"), length=("DT_DIA", "count"))
         .reset_index(drop=True)
     )
 
-    gaps_as_dicts: list[GetGapsReturnDict] = gaps.to_dict(orient="records")  # pyright: ignore[reportUnknownMemberType, reportAssignmentType]
+    gaps_as_dicts: list[GetGapsReturnDict] = gaps.to_dict(orient="records")  # ty: ignore[invalid-assignment]
 
     return t, min_date, max_date, gaps_as_dicts
 
@@ -124,7 +118,7 @@ def sat_get_total_equipment(cnpj: str, date_range: tuple[date, date]) -> int:
         },
         use_polars=False,
     )
-    total_eq: int = result["QT_TOTAL_EQUIPAMENTO"].item()  # pyright: ignore[reportAny]
+    total_eq: int = result["QT_TOTAL_EQUIPAMENTO"].item()
     return total_eq
 
 
@@ -141,7 +135,7 @@ def sat_get_failing_equipment(
         },
         use_polars=False,
     )
-    return t.to_dict(orient="records")  # pyright: ignore[reportUnknownMemberType]
+    return t.to_dict(orient="records")
 
 
 def sat_get_params_description(cnpj: str):
@@ -166,15 +160,15 @@ def sat_get_params_description(cnpj: str):
     out = list[str]()
 
     # Pyright can't infer the keys in the object
-    for p in params.to_dict(orient="records"):  # pyright: ignore[reportUnknownMemberType]
+    for p in params.to_dict(orient="records"):
         value: uint16
         if p["CD_TIPO_INTERRUPCAO"] in ["Equipamento", "Sistema"]:
-            value = p["VL_TEMPO_MAX_INTERRUPCAO"]  # pyright: ignore[reportAny]
+            value = p["VL_TEMPO_MAX_INTERRUPCAO"]
             msg = f"* **{p['CD_TIPO_INTERRUPCAO']}**: " + sat_exp_formats[
                 p["CD_TIPO_INTERRUPCAO"]
             ].format(x=value)
         else:
-            value = p["VL_PCT_MAX_INTERRUPCAO"]  # pyright: ignore[reportAny]
+            value = p["VL_PCT_MAX_INTERRUPCAO"]
             msg = f"* **{p['CD_TIPO_INTERRUPCAO']}**: " + sat_exp_formats[
                 p["CD_TIPO_INTERRUPCAO"]
             ].format(x=value)
@@ -227,7 +221,7 @@ def sat_eval_params_system(cnpj: str, date_range: tuple[date, date]) -> pl.DataF
         },
         use_polars=True,
     )
-    n_sats: int = n_sats_pl["total_equipment"].item()  # pyright: ignore[reportAny]
+    n_sats: int = n_sats_pl["total_equipment"].item()
 
     stats_cnpj_pl = downtimes_sat_pl.group_by("DT_MES").agg(
         [
@@ -308,7 +302,7 @@ def sat_eval_params_equipment_months(
                 .with_columns(
                     pl.col("Status").map_elements(
                         lambda x: STATUS_CODE_TO_STR[x],
-                        return_dtype=pl.Utf8,  # pyright: ignore[reportAny]
+                        return_dtype=pl.Utf8,
                     )
                 )
                 .rename(
@@ -340,7 +334,7 @@ def sat_eval_params_equipment_months(
         .with_columns(
             pl.col("Status").map_elements(
                 lambda x: STATUS_CODE_TO_STR[x],
-                return_dtype=pl.Utf8,  # pyright: ignore[reportAny]
+                return_dtype=pl.Utf8,
             )
         )
         .rename(
@@ -409,15 +403,8 @@ def sat_get_performance_description(df: pl.DataFrame, normalize: bool = True) ->
         eval_dict[cumprimento].append(mes)
 
     out_msg = list[str]()
-    for e in eval_dict:
-        msg = (
-            "* "
-            + e
-            + ": "
-            + str(len(eval_dict[e]))
-            + " meses -- "
-            + ", ".join(eval_dict[e])
-        )
+    for key, val in eval_dict.items():
+        msg = "* " + key + ": " + str(len(val)) + " meses -- " + ", ".join(val)
         out_msg.append(msg)
 
     out_msg = "\n".join(out_msg)
@@ -437,8 +424,8 @@ def sat_eval_interruptions(cnpj: str, date_range: tuple[date, date]):
             format_seconds(0),
             pl.DataFrame(),
         )
-    mean_inter: float = interLocal["DIFF_HOR"].mean()  # pyright: ignore[reportAssignmentType]
-    dev_inter: float = interLocal["DIFF_HOR"].std()  # pyright: ignore[reportAssignmentType]
+    mean_inter: float = interLocal["DIFF_HOR"].mean()  # ty: ignore[invalid-assignment]
+    dev_inter: float = interLocal["DIFF_HOR"].std()  # ty: ignore[invalid-assignment]
 
     top10equip = interLocal.group_by(["CD_SAT", "NO_SAT"]).agg(
         [
@@ -539,7 +526,7 @@ class SATReporter(SubReporter):
         self.md(data_fmt)
         # plot time series of counts
         timeseries = _timeseries.set_index("DT_DIA")["QT_CONTAGEM"]
-        _ = st.line_chart(  # pyright: ignore[reportUnknownMemberType]
+        _ = st.line_chart(
             timeseries,
             height=300,
             width="stretch",
@@ -587,7 +574,7 @@ class SATReporter(SubReporter):
             .encode("utf-8")
         )
 
-        _ = st.map(map_data, size="QT_CONTAGEM")  # pyright: ignore[reportUnknownMemberType]
+        _ = st.map(map_data, size="QT_CONTAGEM")
         self.append_point_map_snapshot(
             map_data["lat"], map_data["lon"], map_data["count"]
         )

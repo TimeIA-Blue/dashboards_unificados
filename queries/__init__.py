@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Literal, cast, overload
+from typing import Literal, overload
 
 import polars as pl
 import streamlit as st
@@ -18,7 +18,7 @@ def get_sql_template(path: Path) -> str:
 
 
 @overload
-def get_query_result(  # pyright: ignore[reportOverlappingOverload]
+def get_query_result(
     path: Path,
     inputs: dict[str, str],
     use_polars: Literal[True] = True,
@@ -40,7 +40,7 @@ def get_query_result(
 ) -> PandasDataFrame | PolarsDataFrame:
     sql_template = get_sql_template(path)
     sql_query = sql_template.format(**inputs)
-    pd_df = cast(PandasDataFrame, ch_client().query_df(sql_query))  # pyright: ignore[reportUnknownMemberType]
+    pd_df = ch_client().query_df(sql_query)
     if use_polars:
         return PolarsDataFrame(pd_df)
     return pd_df
@@ -65,11 +65,7 @@ def get_template_str(name: str) -> str:
 @st.cache_data
 def get_zeroing_data(resolution: int) -> PolarsDataFrame:
     template = get_template_str("zeroing_data")
-    applied_template = template.format(
-        **{
-            "resolution": resolution,
-        }
-    )
+    applied_template = template.format(resolution=resolution)
     return PolarsDataFrame(from_pandas(ch_client().query_df(applied_template)))
 
 
@@ -80,7 +76,7 @@ def get_raw_data_for_hexagons(
     hexagons: list[str],
     only_zeroeds: bool = True,
 ):
-    hexagon_list_as_str = "({})".format(",".join(["'{}'".format(h) for h in hexagons]))
+    hexagon_list_as_str = "({})".format(",".join([f"'{h}'" for h in hexagons]))
     filters_str = [
         f"NU_CNPJ = '{cnpj}'",
         f"DS_TIPO_SERVICO = '{DICT_TIPO_VEICULO_RECURSO[recurso]}'",
@@ -114,17 +110,15 @@ def get_raw_data_for_hexagons(
 def get_stats_region(
     cnpj: str, tipo_recurso: str, resolution: int, hexagons: list[str]
 ):
-    hexagon_list_as_str = "({})".format(",".join(["'{}'".format(h) for h in hexagons]))
+    hexagon_list_as_str = "({})".format(",".join([f"'{h}'" for h in hexagons]))
     tipo_servico = DICT_TIPO_VEICULO_RECURSO[tipo_recurso]
     template = get_template_str("stats_region")
     applied_template = template.format(
-        **{
-            "resolution": resolution,
-            "cnpj": cnpj,
-            "tipo_servico": tipo_servico,
-            "tipo_recurso": tipo_recurso,
-            "hexagon_list_str": hexagon_list_as_str,
-        }
+        resolution=resolution,
+        cnpj=cnpj,
+        tipo_servico=tipo_servico,
+        tipo_recurso=tipo_recurso,
+        hexagon_list_str=hexagon_list_as_str,
     )
     data = PolarsDataFrame(from_pandas(ch_client().query_df(applied_template)))
     return {
@@ -142,9 +136,5 @@ def get_stats_region(
 @st.cache_data
 def get_data_with_res(resolution: int):
     template = get_template_str("get_data")
-    applied_template = template.format(
-        **{
-            "resolution": resolution,
-        }
-    )
+    applied_template = template.format(resolution=resolution)
     return PolarsDataFrame(from_pandas(ch_client().query_df(applied_template)))

@@ -28,7 +28,9 @@ def load_companies_data() -> tuple[pd.DataFrame, pd.DataFrame]:
 
 @st.cache_data(show_spinner=False)
 def load_time_period() -> tuple[date, date]:
-    result: pd.DataFrame = ch_client().query_df(AVAILABLE_TIMESTAMPS_QUERY)
+    result: pd.DataFrame = (
+        ch_client().query_df(AVAILABLE_TIMESTAMPS_QUERY).sort_values("VL_VALOR")
+    )
     min_date = datetime.strptime(result.iloc[0]["VL_VALOR"], "%Y-%m-%d").date()
     max_date = datetime.strptime(result.iloc[1]["VL_VALOR"], "%Y-%m-%d").date()
     return min_date, max_date
@@ -172,7 +174,6 @@ def generate_report():
         companies_data=companies_data,
     )
 
-    # pyright: ignore[reportArgumentType]
     html = reporter.build_report(selected_date)  # ty: ignore[invalid-argument-type]
     generated_html_report += f"\n{html}"
     _ = st.success("Relatório gerado com sucesso!")

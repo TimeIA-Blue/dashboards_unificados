@@ -85,7 +85,7 @@ def save_data():
                 session.execute(
                     text("DELETE FROM trechos WHERE nome = :t"), {"t": trecho}
                 )
-            except Exception as e:
+            except Exception as _e:  # noqa: BLE001
                 st.error(
                     f"Erro ao remover trecho {trecho}.\nUm trecho só pode ser removido se não estiver associado a nenhum outro registro."
                 )

@@ -11,14 +11,8 @@ from pandas.core.frame import DataFrame
 from queries import get_query_result
 from queries.radar import AVAILABLE_RADAR_QUERIES
 from relatorio.reporter import SubReporter, SubReportSection
+from spotfire import format_seconds
 from spotfire.radar import radar_data_function_tables
-
-
-def format_seconds(seconds: int):
-    hours = seconds // 3600
-    minutes = (seconds % 3600) // 60
-    secs = seconds % 60
-    return f"{hours:02d}h{minutes:02d}m{secs:02d}s"
 
 
 def dataframe_to_csv(df: DataFrame) -> bytes:

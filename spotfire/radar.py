@@ -317,7 +317,7 @@ def radar_data_function_tables(
     int_sis_summary["cumpriu"] = int_sis_summary["val"] <= int_sis_summary["val_esp"]
     int_sis_summary["val_esp"] = (int_sis_summary["val_esp"] / 60 / 60).astype(int)
     int_sis_summary["val"] = (
-        np.round(int_sis_summary["val"]).astype(int).apply(format_seconds)  # ty: ignore[missing-attribute]
+        np.round(int_sis_summary["val"]).astype(int).apply(format_seconds)
     )
     int_sis_summary["val_esp"] = int_sis_summary["val_esp"].astype(str) + "h"
 

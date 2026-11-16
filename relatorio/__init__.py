@@ -34,10 +34,10 @@ def h3_to_geojson(
 ) -> GeoJSONFeatureCollectionDict:
     features: list[GeoJSONDict] = []
     for _, row in df.iterrows():
-        h: str = row[h3_col]  # pyright: ignore[reportAny]
+        h: str = row[h3_col]
         v = row[value_col]
-        boundary = h3.cells_to_geo([h])["coordinates"][0]  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
-        poly = Polygon(boundary)  # pyright: ignore[reportArgumentType]
+        boundary = h3.cells_to_geo([h])["coordinates"][0]
+        poly = Polygon(boundary)
         features.append(
             {
                 "type": "Feature",
@@ -115,6 +115,6 @@ def convert_and_plot_h3_map(
 
 __all__ = [
     "Reporter",
-    "SubReporter",
     "SubReportSection",
+    "SubReporter",
 ]

@@ -47,8 +47,6 @@ def pedagio_data_function_tables(
     TOTAL_STEPS = 5
     progress_bar = st.progress(0, text="Estabelecendo conexão com o banco de dados...")
     min_day, max_day = date_range
-    min_day_str = min_day.strftime("%Y-%m-%d")
-    max_day_str = max_day.strftime("%Y-%m-%d")
     client = ch_client()
 
     progress_bar.progress(

@@ -247,9 +247,9 @@ class AtendimentoReporter(SubReporter):
         params_pl = params_pl.pivot("CD_TIPO_PARAMETRO", index=index_cols).rename(
             {"1": "param_q_90", "2": "param_med_10", "3": "param_med_90"}, strict=False
         )
-        has_params = set(
-            [c[6:].lower() for c in params_pl.columns if c.startswith("param_")]
-        )
+        has_params = {
+            c[6:].lower() for c in params_pl.columns if c.startswith("param_")
+        }
         first_columns = ["CD_RODOVIA", "DS_TIPO_RODOVIA", "DS_NOME_TRECHO"]
 
         group_keys = [

@@ -136,7 +136,7 @@ class SubReporter(ABC):
                 zoom_adjust=-1,
                 reset_extent=False,
             )
-        except (OSError, ValueError):
+        except OSError, ValueError:
             axis.grid(color="#d1d5db", alpha=0.6)
         axis.set_aspect("auto")
         axis.set_axis_off()

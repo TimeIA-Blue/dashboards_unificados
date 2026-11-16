@@ -1,5 +1,3 @@
-from typing import Optional
-
 import h3
 import pandas as pd
 import plotly.express as px
@@ -34,9 +32,9 @@ def plot_h3_map(
     value_col: str = "value",
     range_color: tuple[float, float] = (0, 2),
     color_map: list[tuple[float, str]] | str = PURPLE_GREEN_RED_PALETTE,
-    additional_hover_data: Optional[list[str]] = None,
-    rename_value_col: Optional[str] = None,
-    other_renames: Optional[dict[str, str]] = None,
+    additional_hover_data: list[str] | None = None,
+    rename_value_col: str | None = None,
+    other_renames: dict[str, str] | None = None,
 ):
     if additional_hover_data is None:
         additional_hover_data = []

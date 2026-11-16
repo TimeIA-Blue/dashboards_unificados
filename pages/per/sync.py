@@ -256,20 +256,20 @@ def confirm_action(action_functions, dataset_names):
 
         try:
             ch_client().ping()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             st.error(
                 "Erro na conexão com o banco de dados.\n\nPor favor tente novamente mais tarde ou contate a equipe de suporte."
             )
             get_general_logger().error(
-                f"{{event: 'db_connection_error', error: '{str(e)}'}}"
+                f"{{event: 'db_connection_error', error: '{e!s}'}}"
             )
 
         for name, action in zip(dataset_names, action_functions):
             try:
                 action(ch_client())
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 get_query_logger().error(
-                    f"{{event: 'sync_error', dataset: '{name}', error: '{str(e)}'}}"
+                    f"{{event: 'sync_error', dataset: '{name}', error: '{e!s}'}}"
                 )
                 st.error(f"Erro ao atualizar os parâmetros de **{name}**.")
 

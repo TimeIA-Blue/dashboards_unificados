@@ -15,7 +15,7 @@ def populate_db(conn):
             INSERT OR IGNORE INTO concessionaria (cnpj, no_fantasia)
             VALUES (?, ?)
         """,
-            (row.cnpj, row.no_fantasia),
+            (row.cnpj, row.no_fantasia),  # ty: ignore[missing-attribute]
         )
 
     # enums de pedagio
@@ -26,7 +26,7 @@ def populate_db(conn):
             INSERT OR IGNORE INTO pedagio_tipo (nome)
             VALUES (?)
         """,
-            (row.nome,),
+            (row.nome,),  # ty: ignore[missing-attribute]
         )
 
     # pedagio
@@ -37,7 +37,7 @@ def populate_db(conn):
             INSERT OR IGNORE INTO pedagio (cnpj, tipo_interrup, tempo_max_interrup)
             VALUES (?, ?, ?)
         """,
-            (row.cnpj, row.tipo_interrup, row.tempo_max_interrup),
+            (row.cnpj, row.tipo_interrup, row.tempo_max_interrup),  # ty: ignore[missing-attribute]
         )
 
     # enums de radar
@@ -48,7 +48,7 @@ def populate_db(conn):
             INSERT OR IGNORE INTO radar_tipo (nome)
             VALUES (?)
         """,
-            (row.nome,),
+            (row.nome,),  # ty: ignore[missing-attribute]
         )
 
     # radar
@@ -59,7 +59,7 @@ def populate_db(conn):
             INSERT OR IGNORE INTO radar (cnpj, tipo_interrup, tempo_max_interrup, pct_max_interrup)
             VALUES (?, ?, ?, ?)
         """,
-            (row.cnpj, row.tipo_interrup, row.tempo_max_interrup, row.pct_max_interrup),
+            (row.cnpj, row.tipo_interrup, row.tempo_max_interrup, row.pct_max_interrup),  # ty: ignore[missing-attribute]
         )
 
     # enums de sat
@@ -70,7 +70,7 @@ def populate_db(conn):
             INSERT OR IGNORE INTO sat_tipo (nome)
             VALUES (?)
         """,
-            (row.nome,),
+            (row.nome,),  # ty: ignore[missing-attribute]
         )
 
     # sat
@@ -81,7 +81,7 @@ def populate_db(conn):
             INSERT OR IGNORE INTO sat (cnpj, tipo_interrup, tempo_max_interrup, pct_max_interrup)
             VALUES (?, ?, ?, ?)
         """,
-            (row.cnpj, row.tipo_interrup, row.tempo_max_interrup, row.pct_max_interrup),
+            (row.cnpj, row.tipo_interrup, row.tempo_max_interrup, row.pct_max_interrup),  # ty: ignore[missing-attribute]
         )
 
     # vit
@@ -92,7 +92,7 @@ def populate_db(conn):
             INSERT OR IGNORE INTO vit (cnpj, vel_med, soma_quatro_atrasos, it)
             VALUES (?, ?, ?, ?)
         """,
-            (row.cnpj, row.vel_med, row.soma_quatro_atrasos, row.it),
+            (row.cnpj, row.vel_med, row.soma_quatro_atrasos, row.it),  # ty: ignore[missing-attribute]
         )
 
     # trechos
@@ -103,7 +103,7 @@ def populate_db(conn):
             INSERT OR IGNORE INTO trechos (id, nome, rodovia, km_inicial, km_final)
             VALUES (?, ?, ?, ?, ?)
         """,
-            (row.id, row.nome, row.rodovia, row.km_inicial, row.km_final),
+            (row.id, row.nome, row.rodovia, row.km_inicial, row.km_final),  # ty: ignore[missing-attribute]
         )
 
     # enums de atendimento
@@ -114,7 +114,7 @@ def populate_db(conn):
             INSERT OR IGNORE INTO atendimento_tipo (nome)
             VALUES (?)
         """,
-            (row.nome,),
+            (row.nome,),  # ty: ignore[missing-attribute]
         )
 
     # atendimento
@@ -127,13 +127,13 @@ def populate_db(conn):
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
             (
-                row.cnpj,
-                row.rodovia,
-                row.trecho_id,
-                row.tipo_servico,
-                row.tipo_recurso,
-                row.tipo_parametro,
-                row.valor,
+                row.cnpj,  # ty: ignore[missing-attribute]
+                row.rodovia,  # ty: ignore[missing-attribute]
+                row.trecho_id,  # ty: ignore[missing-attribute]
+                row.tipo_servico,  # ty: ignore[missing-attribute]
+                row.tipo_recurso,  # ty: ignore[missing-attribute]
+                row.tipo_parametro,  # ty: ignore[missing-attribute]
+                row.valor,  # ty: ignore[missing-attribute]
             ),
         )
 

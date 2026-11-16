@@ -10,14 +10,8 @@ from pandas import DataFrame, Timestamp
 from queries import get_query_result
 from queries.pedagio import AVAILABLE_PEDAGIO_QUERIES
 from relatorio.reporter import SubReporter, SubReportSection
+from spotfire import format_seconds
 from spotfire.pedagio import pedagio_data_function_tables
-
-
-def format_seconds(seconds: int):
-    hours = seconds // 3600
-    minutes = (seconds % 3600) // 60
-    secs = seconds % 60
-    return f"{hours:02d}h{minutes:02d}m{secs:02d}s"
 
 
 def dataframe_to_csv(df: DataFrame) -> bytes:
@@ -352,9 +346,14 @@ class PedagioReporter(SubReporter):
     ):
         _timeseries, min_date, max_date, gaps = get_gaps(cnpj)
         company_name: str = self.company_name(cnpj)
-        _inter, total_inter, inter_equip_count, mean_inter, dev_inter, top10equip = (
-            eval_interruptions(cnpj, date_range)
-        )
+        (
+            _inter,
+            _total_inter,
+            inter_equip_count,
+            _mean_inter,
+            _dev_inter,
+            _top10equip,
+        ) = eval_interruptions(cnpj, date_range)
         equip_msg = f"Foram detectadas {total_eq} praças ao todo. "
         failing_eq = get_failing_equipment(cnpj)
         if total_eq == inter_equip_count:

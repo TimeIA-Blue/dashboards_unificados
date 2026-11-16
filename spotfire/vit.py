@@ -20,8 +20,7 @@ def vit_data_function_tables(
     """
 
     TOTAL_STEPS = 5
-    progress_bar = st.progress(
-        0, text="Estabelecendo conexão com o banco de dados...")
+    progress_bar = st.progress(0, text="Estabelecendo conexão com o banco de dados...")
     client = ch_client()
     min_day, max_day = date_range
     min_day_str = min_day.strftime("%Y-%m-%d")
@@ -33,21 +32,21 @@ def vit_data_function_tables(
     company_names = get_company_names()
 
     # Quantidade de dados
-    progress_bar.progress(
-        2 / TOTAL_STEPS, text="Carregando dados geográficos...")
+    progress_bar.progress(2 / TOTAL_STEPS, text="Carregando dados geográficos...")
     pedagio_coords = client.query_df(
-        "SELECT NU_CNPJ, CD_PRACA_PEDAGIO AS CD_PONTO, CG_LATITUDE, CG_LONGITUDE FROM BD_ANALYTICS_SIR.V_PEDAGIO_INFO")
-    pedagio_coords['DS_TIPO_PONTO'] = 'Pedágio'
+        "SELECT NU_CNPJ, CD_PRACA_PEDAGIO AS CD_PONTO, CG_LATITUDE, CG_LONGITUDE FROM BD_ANALYTICS_SIR.V_PEDAGIO_INFO"
+    )
+    pedagio_coords["DS_TIPO_PONTO"] = "Pedágio"
     radar_coords = client.query_df(
-        "SELECT NU_CNPJ, CD_RADAR AS CD_PONTO, CG_LATITUDE, CG_LONGITUDE FROM BD_ANALYTICS_SIR.V_RADAR_INFO")
-    radar_coords['DS_TIPO_PONTO'] = 'Radar'
+        "SELECT NU_CNPJ, CD_RADAR AS CD_PONTO, CG_LATITUDE, CG_LONGITUDE FROM BD_ANALYTICS_SIR.V_RADAR_INFO"
+    )
+    radar_coords["DS_TIPO_PONTO"] = "Radar"
     all_coords = pd.concat([pedagio_coords, radar_coords])
 
     # ANÁLISE DOS PARÂMETROS OPERACIONAIS
     # DADOS BASE
 
-    progress_bar.progress(
-        3 / TOTAL_STEPS, text="Carregando dados de distância...")
+    progress_bar.progress(3 / TOTAL_STEPS, text="Carregando dados de distância...")
     vit_deltas_dist = client.query_df(
         f"""
     SELECT * FROM (
@@ -120,14 +119,11 @@ def vit_data_function_tables(
 
     Atrasos["VL_DELTA"] = Atrasos["VL_DELTA"].astype("Int64")
     Atrasos["VL_INTERVALO"] = Atrasos["VL_INTERVALO"].astype("Int64")
-    Atrasos["VL_INTERVALO_SEGUNDOS"] = Atrasos["VL_INTERVALO_SEGUNDOS"].astype(
-        "Int64")
-    Atrasos["VL_ATRASO_SEGUNDOS"] = Atrasos["VL_ATRASO_SEGUNDOS"].astype(
-        "Int64")
+    Atrasos["VL_INTERVALO_SEGUNDOS"] = Atrasos["VL_INTERVALO_SEGUNDOS"].astype("Int64")
+    Atrasos["VL_ATRASO_SEGUNDOS"] = Atrasos["VL_ATRASO_SEGUNDOS"].astype("Int64")
     Atrasos["atraso_mins"] = Atrasos["VL_ATRASO_SEGUNDOS"] / 60
     Atrasos["fantasia"] = Atrasos["NU_CNPJ"].map(company_names)
-    Atrasos = Atrasos.merge(all_coords, how="left", on=[
-                            "NU_CNPJ", "DS_TIPO_PONTO"])
+    Atrasos = Atrasos.merge(all_coords, how="left", on=["NU_CNPJ", "DS_TIPO_PONTO"])
 
     # SOMA 4
     s_atrasos = (
@@ -218,8 +214,7 @@ def vit_data_function_tables(
 
     # VELOCIDADE MÉDIA DOS VEÍCULOS
     VelMed = vit_deltas_dist[
-        ["NU_CNPJ", "DT_MES", "DT_INSTANTE_ANTERIOR",
-            "DS_PLACA", "VL_VELOCIDADE_MEDIA"]
+        ["NU_CNPJ", "DT_MES", "DT_INSTANTE_ANTERIOR", "DS_PLACA", "VL_VELOCIDADE_MEDIA"]
     ].copy()
     VelMed["DT_MES"] = VelMed["DT_INSTANTE_ANTERIOR"].dt.strftime("%Y-%m")
     VelMed = VelMed.drop(columns=["DT_INSTANTE_ANTERIOR"])
@@ -234,8 +229,7 @@ def vit_data_function_tables(
     max_ts = pd.to_datetime(max_day).replace(day=1)
 
     month_span = (
-        pd.date_range(start=min_ts, end=max_ts,
-                      freq="MS").strftime("%Y-%m").tolist()
+        pd.date_range(start=min_ts, end=max_ts, freq="MS").strftime("%Y-%m").tolist()
     )
 
     BaseTable = client.query_df(
@@ -268,8 +262,7 @@ def vit_data_function_tables(
 
     # RESUMO: IT
     AtrasosGrouped = (
-        Atrasos.groupby(["NU_CNPJ", "DT_MES"]).size(
-        ).reset_index(name="QT_ATRASOS")
+        Atrasos.groupby(["NU_CNPJ", "DT_MES"]).size().reset_index(name="QT_ATRASOS")
     )
     AtrasosSummary = BaseTable.copy()
     AtrasosSummary = AtrasosSummary.merge(
@@ -293,8 +286,7 @@ def vit_data_function_tables(
     )
 
     SomaSummary = BaseTable.copy()
-    SomaSummary = SomaSummary.merge(
-        SomaGrouped, how="left", on=["NU_CNPJ", "DT_MES"])
+    SomaSummary = SomaSummary.merge(SomaGrouped, how="left", on=["NU_CNPJ", "DT_MES"])
     SomaSummary = SomaSummary.fillna(0)
     SomaSummary["count_b_acima"] = SomaSummary["count_b_acima"].astype("Int64")
     SomaSummary = SomaSummary.merge(sum_params, on="NU_CNPJ")
@@ -329,15 +321,13 @@ def vit_data_function_tables(
         return "Não"
 
     VMedSummary = BaseTable.copy()
-    VMedSummary = VMedSummary.merge(
-        VMedGrouped, how="left", on=["NU_CNPJ", "DT_MES"])
+    VMedSummary = VMedSummary.merge(VMedGrouped, how="left", on=["NU_CNPJ", "DT_MES"])
     VMedSummary = VMedSummary.fillna(0)
     VMedSummary = VMedSummary.merge(vmed_params, on="NU_CNPJ")
     VMedSummary["VL_VALOR_ESPERADO"] = (
         VMedSummary["VL_VELOCIDADE_MEDIA_y"].astype(str) + " ± 10 km/h"
     )
-    VMedSummary = VMedSummary.rename(
-        columns={"VL_VELOCIDADE_MEDIA_x": "VL_VALOR"})
+    VMedSummary = VMedSummary.rename(columns={"VL_VELOCIDADE_MEDIA_x": "VL_VALOR"})
     VMedSummary["ST_CUMPRIMENTO"] = VMedSummary.apply(cumpriu_vel, axis=1)
     VMedSummary["VL_VALOR"] = np.round(VMedSummary["VL_VALOR"], 2)
     VMedSummary = VMedSummary.drop(columns=["VL_VELOCIDADE_MEDIA_y"])
@@ -380,8 +370,7 @@ def vit_data_function_tables(
     )
 
     FullSummary["NU_CNPJ"] = FullSummary["NU_CNPJ"].astype(str)
-    FullSummary["VL_VALOR"] = FullSummary["VL_VALOR"].astype(
-        float).round().astype(int)
+    FullSummary["VL_VALOR"] = FullSummary["VL_VALOR"].astype(float).round().astype(int)
     FullSummary = FullSummary.drop(columns=["QT_CONTAGEM", "NO_FANTASIA"])
     Atrasos["NU_CNPJ"] = Atrasos["NU_CNPJ"].astype(str)
     progress_bar.empty()
