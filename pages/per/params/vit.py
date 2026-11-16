@@ -46,7 +46,7 @@ data_config = {
 
 edited_df = st.data_editor(
     df,
-    use_container_width=True,
+    width="stretch",
     column_config=data_config,
     key="vit_editor",
     num_rows="dynamic",

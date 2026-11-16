@@ -29,7 +29,7 @@ df = conn.query(f"SELECT {','.join(data_config.keys())} FROM trechos", ttl=0)
 
 edited_df = st.data_editor(
     df,
-    use_container_width=True,
+    width="stretch",
     column_config=data_config,
     key="trechos_editor",
     num_rows="dynamic",

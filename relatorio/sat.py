@@ -542,7 +542,7 @@ class SATReporter(SubReporter):
         _ = st.line_chart(  # pyright: ignore[reportUnknownMemberType]
             timeseries,
             height=300,
-            use_container_width=True,
+            width="stretch",
         )
         self.append_line_chart_snapshot(timeseries)
         self.md(gaps_fmt_joined)
@@ -572,14 +572,20 @@ class SATReporter(SubReporter):
                 "count": [eq["QT_CONTAGEM"] / 100 for eq in equip_map],
             }
         )
-        map_data_for_download = pd.DataFrame(equip_map).drop(columns=[
-            "CD_SAT"
-        ]).rename(columns={
-            "NO_SAT": "Identificador",
-            "CG_LATITUDE": "Latitude",
-            "CG_LONGITUDE": "Longitude",
-            "QT_CONTAGEM": "Total de passagens"
-        }).to_csv(index=False).encode("utf-8")
+        map_data_for_download = (
+            pd.DataFrame(equip_map)
+            .drop(columns=["CD_SAT"])
+            .rename(
+                columns={
+                    "NO_SAT": "Identificador",
+                    "CG_LATITUDE": "Latitude",
+                    "CG_LONGITUDE": "Longitude",
+                    "QT_CONTAGEM": "Total de passagens",
+                }
+            )
+            .to_csv(index=False)
+            .encode("utf-8")
+        )
 
         _ = st.map(map_data, size="QT_CONTAGEM")  # pyright: ignore[reportUnknownMemberType]
         self.append_point_map_snapshot(
@@ -680,9 +686,10 @@ class SATReporter(SubReporter):
             self.show_table(top10equip_pd)
             _ = st.download_button(
                 "Baixar tabela completa",
-                data=top10equip.to_pandas().drop(columns=["CD_SAT"]).to_csv(
-                    index=False
-                ).encode("utf-8-sig"),
+                data=top10equip.to_pandas()
+                .drop(columns=["CD_SAT"])
+                .to_csv(index=False)
+                .encode("utf-8-sig"),
                 file_name=f"sat_interrupcoes_por_equipamento_{cnpj}.csv",
                 mime="text/csv",
                 icon=":material/download:",

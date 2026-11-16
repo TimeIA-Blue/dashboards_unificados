@@ -170,7 +170,7 @@ class AtendimentoReporter(SubReporter):
         _ = st.line_chart(
             _timeseries.set_index("DT_DIA")["QT_CONTAGEM"],
             height=300,
-            use_container_width=True,
+            width="stretch",
         )
         self._current_report_html.append(
             "<div><img src='data:image/png;base64,{chart_data}'/></div>"
@@ -190,7 +190,7 @@ class AtendimentoReporter(SubReporter):
         )
         self.md("#### Localização dos atendimentos")
 
-        _ = st.plotly_chart(fig, use_container_width=True)
+        _ = st.plotly_chart(fig, width="stretch")
         self.append_h3_map_snapshot(
             at_map_data["CD_H3"].to_pandas(),
             at_map_data["QT_CONTAGEM"].to_pandas(),

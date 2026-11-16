@@ -394,7 +394,7 @@ class PedagioReporter(SubReporter):
         _ = st.line_chart(
             _timeseries.set_index("DT_DIA")["QT_CONTAGEM"],
             height=300,
-            use_container_width=True,
+            width="stretch",
         )
         self.md(gaps_fmt_joined)
         self.md(equip_msg)

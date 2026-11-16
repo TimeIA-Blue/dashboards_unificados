@@ -82,7 +82,7 @@ class VITReporter(SubReporter):
         _ = st.line_chart(
             vit_daily_data.set_index("DT_DIA")["QT_CONTAGEM"],
             height=300,
-            use_container_width=True,
+            width="stretch",
         )
 
         vehicles_table = get_registered_vehicles(cnpj)
@@ -96,7 +96,6 @@ class VITReporter(SubReporter):
         )
         self.show_table(vehicles_table.set_index(vehicles_table.columns[0]))
 
-        
         _ = st.download_button(
             "Baixar relação de veículos cadastrados",
             data=vehicles_table.to_csv(index=False).encode("utf-8"),
@@ -167,8 +166,8 @@ class VITReporter(SubReporter):
 
         self.md("A performance da concessionária está sumarizada na relação abaixo.")
 
-        vit_eval, vit_eval_checks, mean_atrasos, std_atrasos, atrasos_full = get_company_eval(
-            cnpj, date_range
+        vit_eval, vit_eval_checks, mean_atrasos, std_atrasos, atrasos_full = (
+            get_company_eval(cnpj, date_range)
         )
 
         eval_msg = ""
@@ -209,28 +208,32 @@ class VITReporter(SubReporter):
             icon=":material/download:",
         )
 
-        atrasos_to_download = atrasos_full.drop(columns=[
-            "NU_CNPJ",
-            "CD_PONTO_x",
-            "CD_PONTO_y",
-            "CD_SENTIDO",
-            "VL_DELTA",
-            "VL_INTERVALO",
-            "VL_INTERVALO_SEGUNDOS",
-            "VL_ATRASO_SEGUNDOS",
-            "fantasia",
-        ]).rename(columns={
-            "DS_TIPO_PONTO": "Tipo do Ponto",
-            "NO_PONTO": "Nome do ponto",
-            "NO_SENTIDO": "Sentido",
-            "DT_INSTANTE_ANTERIOR": "Início do intervalo",
-            "DT_INSTANTE": "Fim do intervalo",
-            "DS_PLACA_ANTERIOR": "Placa do VIT inicial",
-            "DS_PLACA": "Placa do VIT final",
-            "atraso_mins": "Minutos de atraso",
-            "CG_LATITUDE": "Latitude",
-            "CG_LONGITUDE": "Longitude"
-        })
+        atrasos_to_download = atrasos_full.drop(
+            columns=[
+                "NU_CNPJ",
+                "CD_PONTO_x",
+                "CD_PONTO_y",
+                "CD_SENTIDO",
+                "VL_DELTA",
+                "VL_INTERVALO",
+                "VL_INTERVALO_SEGUNDOS",
+                "VL_ATRASO_SEGUNDOS",
+                "fantasia",
+            ]
+        ).rename(
+            columns={
+                "DS_TIPO_PONTO": "Tipo do Ponto",
+                "NO_PONTO": "Nome do ponto",
+                "NO_SENTIDO": "Sentido",
+                "DT_INSTANTE_ANTERIOR": "Início do intervalo",
+                "DT_INSTANTE": "Fim do intervalo",
+                "DS_PLACA_ANTERIOR": "Placa do VIT inicial",
+                "DS_PLACA": "Placa do VIT final",
+                "atraso_mins": "Minutos de atraso",
+                "CG_LATITUDE": "Latitude",
+                "CG_LONGITUDE": "Longitude",
+            }
+        )
 
         _ = st.download_button(
             "Baixar relação de todos os atrasos",

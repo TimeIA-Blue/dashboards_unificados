@@ -86,7 +86,8 @@ with tabData:
     concessionaria = st.selectbox(
         "Concessionária",
         available_concessionarias.keys(),
-        format_func=lambda k: available_concessionarias[k])
+        format_func=lambda k: available_concessionarias[k],
+    )
     tipo_recurso = st.selectbox("Tipo de Recurso", DICT_TIPO_VEICULO_RECURSO.keys())
     filtered_data = filter_by_concessionaria_recurso(data, concessionaria, tipo_recurso)
 
@@ -102,7 +103,7 @@ with tabData:
     sel_event = st.plotly_chart(
         fig,
         on_select="rerun",
-        use_container_width=True,
+        width="stretch",
         selection_mode=["points"],
         config=PLOTLY_CONFIG,
     )
@@ -123,7 +124,7 @@ with tabData:
                     sim_col="Distância",
                     top_n=None,
                 ),
-                use_container_width=True,
+                width="stretch",
                 config=PLOTLY_CONFIG,
             )
 
@@ -173,7 +174,9 @@ with tabAnomalies:
     zeroing_data = get_zeroing_data(res)
     available_concessionarias = get_available_concessionarias(zeroing_data)
     concessionaria = st.selectbox(
-        "Concessionária", available_concessionarias.keys(), format_func=lambda k: available_concessionarias[k]
+        "Concessionária",
+        available_concessionarias.keys(),
+        format_func=lambda k: available_concessionarias[k],
     )
     tipo_recurso = st.selectbox(
         "Tipo de Recurso", DICT_TIPO_VEICULO_RECURSO.keys(), key="selectboxAnomalies"
@@ -215,7 +218,7 @@ with tabAnomalies:
     sel_event_anomalies = st.plotly_chart(
         fig,
         on_select="rerun",
-        use_container_width=True,
+        width="stretch",
         selection_mode=["points"],
         config=PLOTLY_CONFIG,
     )
