@@ -1,18 +1,18 @@
-from collections.abc import Hashable, Mapping
-from datetime import date
+from datetime import date, datetime
 from typing import Any, TypedDict
 
-import pandas as pd
+import polars as pl
 import streamlit as st
 from numpy import uint16
-from pandas._libs.tslibs.timestamps import Timestamp
 from pandas.core.frame import DataFrame
 
 from queries import get_query_result
 from queries.radar import AVAILABLE_RADAR_QUERIES
+from relatorio.radar.anomalies import eval_anomalies
+from relatorio.radar.helpers import DS_TIPO_BY_CODE
+from relatorio.radar.interruptions import eval_interruptions
+from relatorio.radar.params import eval_params
 from relatorio.reporter import SubReporter, SubReportSection
-from spotfire import format_seconds
-from spotfire.radar import radar_data_function_tables
 
 
 def dataframe_to_csv(df: DataFrame) -> bytes:
@@ -26,14 +26,14 @@ def dataframe_to_csv(df: DataFrame) -> bytes:
 
 class GetGapsReturnDict(TypedDict):
     group: int
-    start: pd.Timestamp
-    end: pd.Timestamp
+    start: date | datetime
+    end: date | datetime
     length: int
 
 
 def get_gaps(
     cnpj: str, date_range: tuple[date, date]
-) -> tuple[DataFrame, Timestamp, Timestamp, list[GetGapsReturnDict]]:
+) -> tuple[pl.DataFrame, date, date, list[GetGapsReturnDict]]:
     t = get_query_result(
         AVAILABLE_RADAR_QUERIES["get_gaps"],
         {
@@ -41,24 +41,36 @@ def get_gaps(
             "date_start": date_range[0].strftime("%Y-%m-%d"),
             "date_end": date_range[1].strftime("%Y-%m-%d"),
         },
-        use_polars=False,
+        use_polars=True,
     )
 
-    t["is_zero"] = t["count"] == 0
-    t["group"] = (t["is_zero"] != t["is_zero"].shift()).cumsum()
-
-    min_date: pd.Timestamp = t["date"].min()
-    max_date: pd.Timestamp = t["date"].max()
-
-    where_zero: DataFrame = t[t["is_zero"]]
-    gaps = (
-        where_zero.groupby("group")
-        .agg(start=("date", "min"), end=("date", "max"), length=("date", "count"))
-        .reset_index(drop=True)
+    t = t.with_columns(
+        [
+            pl.col("count").eq(0).alias("is_zero"),
+        ]
+    ).with_columns(
+        pl.col("is_zero")
+        .ne(pl.col("is_zero").shift())
+        .fill_null(True)
+        .cum_sum()
+        .alias("group")
     )
 
-    # TypedDict is a mapping, dict is more strict. However, just change the way it is accessed and its fine.
-    gaps_as_dicts: list[GetGapsReturnDict] = gaps.to_dict(orient="records")  # ty: ignore[invalid-assignment]
+    min_date = t["date"].min()
+    max_date = t["date"].max()
+    if not isinstance(min_date, date) or not isinstance(max_date, date):
+        raise TypeError("Radar gap dates must be date values")
+
+    where_zero = t.filter(pl.col("is_zero"))
+    gaps = where_zero.group_by("group").agg(
+        [
+            pl.col("date").min().alias("start"),
+            pl.col("date").max().alias("end"),
+            pl.col("date").count().alias("length"),
+        ]
+    )
+
+    gaps_as_dicts: list[GetGapsReturnDict] = gaps.to_dicts()  # ty: ignore[invalid-assignment]
 
     return t, min_date, max_date, gaps_as_dicts
 
@@ -71,14 +83,14 @@ def get_total_equipment(cnpj: str, date_range: tuple[date, date]) -> int:
             "date_start": date_range[0].strftime("%Y-%m-%d"),
             "date_end": date_range[1].strftime("%Y-%m-%d"),
         },
-        use_polars=False,
+        use_polars=True,
     )
-    return t["total_equipment"].iloc[0]
+    return t["total_equipment"][0]
 
 
 def get_failing_equipment(
     cnpj: str, date_range: tuple[date, date]
-) -> list[dict[Hashable, Any]]:
+) -> list[dict[str, Any]]:
     t = get_query_result(
         AVAILABLE_RADAR_QUERIES["get_failing_equipment"],
         {
@@ -86,14 +98,12 @@ def get_failing_equipment(
             "date_start": date_range[0].strftime("%Y-%m-%d"),
             "date_end": date_range[1].strftime("%Y-%m-%d"),
         },
-        use_polars=False,
+        use_polars=True,
     )
-    return t.to_dict(orient="records")
+    return t.to_dicts()
 
 
-def get_equipment_map(
-    cnpj: str, date_range: tuple[date, date]
-) -> list[dict[Hashable, Any]]:
+def get_equipment_map(cnpj: str, date_range: tuple[date, date]) -> list[dict[str, Any]]:
     t = get_query_result(
         AVAILABLE_RADAR_QUERIES["get_equipment_map"],
         {
@@ -101,12 +111,10 @@ def get_equipment_map(
             "date_start": date_range[0].strftime("%Y-%m-%d"),
             "date_end": date_range[1].strftime("%Y-%m-%d"),
         },
-        use_polars=False,
+        use_polars=True,
     )
-    return t.to_dict(orient="records")
+    return t.to_dicts()
 
-
-radar_types = {1: "Sistema", 2: "Equipamento", 4: "Sistema (%)"}
 
 radar_exp_formats = {
     "Equipamento": """Indisponibilidades sofridas por um equipamento não podem ultrapassar {x} horas contínuas.
@@ -116,84 +124,72 @@ radar_exp_formats = {
 }
 
 
-def get_company_params(cnpj: str):
+def format_params_message(cnpj: str):
     params = get_query_result(
         AVAILABLE_RADAR_QUERIES["get_company_params"],
         {"cnpj": cnpj},
-        use_polars=False,
+        use_polars=True,
     )
 
-    print("PPP", params)
-
-    params["CD_TIPO_INTERRUPCAO"] = params["CD_TIPO_INTERRUPCAO"].map(radar_types)
+    params = params.with_columns(
+        pl.col("CD_TIPO_INTERRUPCAO")
+        .map_elements(lambda x: DS_TIPO_BY_CODE.get(x, []))
+        .alias("PARTES_PARAMETRO")
+    )
 
     out = list[str]()
-
-    # Pyright can't infer the keys in the object
-    for p in params.to_dict(orient="records"):
+    for p in params.to_dicts():
         value: uint16
-        if p["CD_TIPO_INTERRUPCAO"] in ["Equipamento", "Sistema"]:
+        if "Equipamento" in p["PARTES_PARAMETRO"]:
             value = p["VL_TEMPO_MAX_INTERRUPCAO"]
-            msg = f"* **{p['CD_TIPO_INTERRUPCAO']}**: " + radar_exp_formats[
-                p["CD_TIPO_INTERRUPCAO"]
-            ].format(x=value)
-        else:
-            value = p["pct_max_interrup"]
-            msg = f"* **{p['CD_TIPO_INTERRUPCAO']}**: " + radar_exp_formats[
-                p["CD_TIPO_INTERRUPCAO"]
-            ].format(x=value)
-
-        out.append(msg)
+            msg = (
+                f"* **Equipamento**: {radar_exp_formats['Equipamento'].format(x=value)}"
+            )
+            out.append(msg)
+        if "Sistema" in p["PARTES_PARAMETRO"]:
+            value = p["VL_TEMPO_MAX_INTERRUPCAO"]
+            msg = f"* **Sistema**: {radar_exp_formats['Sistema'].format(x=value)}"
+            out.append(msg)
+        if "Sistema (%)" in p["PARTES_PARAMETRO"]:
+            value = p["VL_PCT_MAX_INTERRUPCAO"]
+            msg = (
+                f"* **Sistema (%)**: {radar_exp_formats['Sistema (%)'].format(x=value)}"
+            )
+            out.append(msg)
 
     return "\n".join(out)
 
 
-def eval_params(fantasia: str, date_range: tuple[date, date]) -> DataFrame:
-    df_eval, _, _ = radar_data_function_tables(date_range)
-    df_eval_f = df_eval[
-        (df_eval["NO_FANTASIA"] == fantasia) & (df_eval["val_esp"] != "-")
-    ].copy()
-    df_eval_f = df_eval_f.drop(columns=["NU_CNPJ", "NO_FANTASIA", "DT_MES"])
-    # month from YYYY-MM to MM/YYYY
-    df_eval_f["month"] = pd.to_datetime(
-        df_eval_f["DT_MES_str"], format="%Y-%m"
-    ).dt.strftime("%m/%Y")
-    df_eval_f = df_eval_f.rename(
-        columns={
-            "val_esp": "Falhas esperadas (valor máximo)",
-            "month": "Mês",
-            "tipo": "Parâmetro",
-            "val": "Falhas contabilizadas",
-            "cumpriu": "Cumprimento",
-        }
-    ).drop(columns=["DT_MES_str"])
-    return df_eval_f
-
-
-def eval_performance(df: pd.DataFrame):
-    def eval_mes(row: Mapping[Hashable, Any]):
-        if row["Não"] > 0 and row["Sim"] > 0:
-            return "Cumprimento parcial (ao menos um parâmetro cumprido)"
-        if row["Sim"] > 0:
-            return "Cumprimento total (todos os parâmetros cumpridos)"
-        return "Não cumprimento (todos os parâmetros descumpridos)"
-
-    df_eval_grouped = (
-        df.groupby(["Mês", "Parâmetro", "Falhas esperadas (valor máximo)"])
-        .agg(
-            Não=("Cumprimento", lambda x: (x == "Não").sum()),
-            Sim=("Cumprimento", lambda x: (x == "Sim").sum()),
-        )
-        .reset_index()
+def eval_performance(df: pl.DataFrame):
+    eval_mes_expr = (
+        pl.when((pl.col("Não") > 0) & (pl.col("Sim") > 0))
+        .then(pl.lit("Cumprimento parcial (ao menos um parâmetro cumprido)"))
+        .when(pl.col("Sim") > 0)
+        .then(pl.lit("Cumprimento total (todos os parâmetros cumpridos)"))
+        .otherwise(pl.lit("Não cumprimento (todos os parâmetros descumpridos)"))
     )
 
-    df_eval_grouped["cumprimento"] = df_eval_grouped.apply(eval_mes, axis=1)
+    df_eval_grouped = df.group_by(
+        ["Mês", "Parâmetro", "Falhas esperadas (valor máximo)"]
+    ).agg(
+        [
+            pl.col("Cumprimento")
+            .filter(pl.col("Cumprimento") == "Sim")
+            .count()
+            .alias("Sim"),
+            pl.col("Cumprimento")
+            .filter(pl.col("Cumprimento") == "Não")
+            .count()
+            .alias("Não"),
+        ]
+    )
+
+    df_eval_grouped = df_eval_grouped.with_columns(eval_mes_expr.alias("cumprimento"))
 
     # to dict -- index is cumprimento, values are a list of mês
     # e.g. {'Sim': ['01/2023', '02/2023'], 'Não': ['03/2023'], 'parcial': ['04/2023']}
     eval_dict: dict[str, list[str]] = {}
-    for _, row in df_eval_grouped.iterrows():
-        # Pyright can't infer key types
+    for row in df_eval_grouped.iter_rows(named=True):
         cumprimento: str = row["cumprimento"]
         mes: str = row["Mês"]
         if cumprimento not in eval_dict:
@@ -208,132 +204,6 @@ def eval_performance(df: pd.DataFrame):
     out_msg = "\n".join(out_msg)
 
     return out_msg
-
-
-def eval_interruptions(cnpj: str, date_range: tuple[date, date]):
-    _, _, inter = radar_data_function_tables(date_range)
-    interLocal = inter[inter["NU_CNPJ"] == cnpj].copy()
-    interLocal["month"] = pd.to_datetime(
-        interLocal["DT_MES"], format="%Y-%m"
-    ).dt.strftime("%m/%Y")
-    mean_inter = interLocal["delta"].mean()
-    dev_inter = interLocal["delta"].std()
-
-    top10equip = (
-        interLocal.groupby(["NO_RADAR"])
-        .agg(mean_delta=("delta", "mean"), count=("delta", "count"))
-        .reset_index()
-    )
-    top10equip = top10equip.sort_values(by="count", ascending=False)
-    top10equip["mean_delta"] = top10equip["mean_delta"].apply(
-        lambda x: format_seconds(int(x))
-    )
-    top10equip = top10equip.rename(
-        columns={
-            "NO_RADAR": "Nome do equipamento",
-            "mean_delta": "Duração média das interrupções",
-            "count": "Número de interrupções",
-        }
-    )
-
-    # drop cnpj
-    interLocal = interLocal.drop(
-        columns=[
-            "NU_CNPJ",
-            "delta",
-            "delta_h",
-            "VL_TOLERANCIA",
-            "CG_LATITUDE",
-            "CG_LONGITUDE",
-        ]
-    )
-    # put fantasia as first column in the dataframe
-    interLocal = interLocal[
-        ["NO_FANTASIA"] + [col for col in interLocal.columns if col != "NO_FANTASIA"]
-    ]
-    interLocal = interLocal.rename(
-        columns={
-            "CD_RADAR": "Código do equipamento",
-            "NO_RADAR": "Nome do equipamento",
-            "DT_INSTANTE_ANTERIOR": "Data/hora início da interrupção",
-            "DT_INSTANTE": "Data/hora fim da interrupção",
-            "month": "Mês",
-            "NO_FANTASIA": "Concessionária",
-            "delta_fmt": "Duração da interrupção",
-        }
-    )
-
-    total_inter = len(interLocal)
-    equip_count = interLocal["Código do equipamento"].nunique()
-    mean_inter = format_seconds(int(mean_inter))
-    dev_inter = format_seconds(int(dev_inter))
-
-    return interLocal, total_inter, equip_count, mean_inter, dev_inter, top10equip
-
-
-def eval_anomalies(cnpj: str, date_range: tuple[date, date]):
-    _, anom, _ = radar_data_function_tables(date_range)
-    anomLocal = anom[anom["NU_CNPJ"] == cnpj].copy()
-
-    count_anom = len(anomLocal)
-    count_equip = anomLocal["CD_RADAR"].nunique()
-    count_mean_anom = anomLocal[anomLocal["med_anom"]]["CD_RADAR"].nunique()
-
-    anom_fmt = anomLocal.drop(
-        columns=[
-            "NU_CNPJ",
-            "CD_RADAR",
-            "QT_CONTAGEM",
-            "CG_LATITUDE",
-            "CG_LONGITUDE",
-            "NO_FANTASIA",
-        ]
-    )
-    # order by month
-    anom_fmt = anom_fmt.sort_values(by="DT_MES")
-    anom_fmt = anom_fmt[anom_fmt["med_anom"]].drop(columns=["med_anom"])
-    anom_fmt["DT_MES"] = pd.to_datetime(anom_fmt["DT_MES"], format="%Y-%m").dt.strftime(
-        "%m/%Y"
-    )
-    anom_fmt["vel_med"] = anom_fmt["VL_VELOCIDADE_MEDIA"].round(2)
-    anom_fmt["vel_med"] = anom_fmt["vel_med"].astype(str) + " km/h"
-    anom_fmt["vel_min"] = anom_fmt["VL_VELOCIDADE_MINIMA"].astype(str) + " km/h"
-    anom_fmt["vel_max"] = anom_fmt["VL_VELOCIDADE_MAXIMA"].astype(str) + " km/h"
-    anom_fmt = anom_fmt.rename(
-        columns={
-            "no_radar": "Nome do equipamento",
-            "DT_MES": "Mês",
-            "vel_med": "Velocidade média",
-            "vel_min": "Velocidade mínima",
-            "vel_max": "Velocidade máxima",
-            "NO_RADAR": "Radar",
-        }
-    ).drop(
-        columns=[
-            "VL_VELOCIDADE_MEDIA",
-            "VL_VELOCIDADE_MINIMA",
-            "VL_VELOCIDADE_MAXIMA",
-            "QT_CONTAGEM_ACIMA_LIMITE",
-        ]
-    )
-    # put Mês as first column
-    anom_fmt = anom_fmt[["Mês"] + [col for col in anom_fmt.columns if col != "Mês"]]
-
-    anomForMap = anomLocal[
-        [
-            "CD_RADAR",
-            "NO_RADAR",
-            "CG_LATITUDE",
-            "CG_LONGITUDE",
-            "QT_CONTAGEM",
-            "med_anom",
-        ]
-    ].drop_duplicates()
-    # if medAnom is True, color red, else yellow
-    anomForMap["color"] = anomForMap["med_anom"].apply(
-        lambda x: (255, 0, 0, 0.5) if x else (255, 255, 0, 0.5)
-    )
-    return anomForMap, anom_fmt, count_anom, count_equip, count_mean_anom
 
 
 class RadarReporter(SubReporter):
@@ -401,7 +271,7 @@ class RadarReporter(SubReporter):
         )
         self.md(data_fmt)
         _ = st.line_chart(
-            _timeseries.set_index("date")["count"],
+            _timeseries.to_pandas().set_index("date")["count"],
             height=300,
             width="stretch",
         )
@@ -410,33 +280,35 @@ class RadarReporter(SubReporter):
         equip_map = get_equipment_map(cnpj, date_range)
         self.md("#### Localização dos equipamentos")
 
-        equipment_data = pd.DataFrame(equip_map)
-        map_data = pd.DataFrame(
-            {
-                "lat": equipment_data["CG_LATITUDE"],
-                "lon": equipment_data["CG_LONGITUDE"],
-                "count": equipment_data["COUNT"] / 100,
-            }
-        )
+        equipment_data = pl.DataFrame(equip_map)
+        equipment_data_pd = equipment_data.to_pandas()
+        map_data = equipment_data.select(
+            [
+                pl.col("CG_LATITUDE").alias("lat"),
+                pl.col("CG_LONGITUDE").alias("lon"),
+                (pl.col("COUNT") / 100).alias("count"),
+            ]
+        ).to_pandas()
         equipment_data_to_download = (
-            equipment_data.drop(columns=["CD_RADAR"])
+            equipment_data.drop("CD_RADAR")
             .rename(
-                columns={
+                {
                     "NO_RADAR": "Identificador",
                     "CG_LATITUDE": "Latitude",
                     "CG_LONGITUDE": "Longitude",
                     "COUNT": "Total de passagens",
                 }
             )
+            .to_pandas()
             .to_csv(index=False)
             .encode("utf-8")
         )
 
         _ = st.map(map_data, size="count")
         self.append_point_map_snapshot(
-            equipment_data["CG_LATITUDE"],
-            equipment_data["CG_LONGITUDE"],
-            equipment_data["COUNT"],
+            equipment_data_pd["CG_LATITUDE"],
+            equipment_data_pd["CG_LONGITUDE"],
+            equipment_data_pd["COUNT"],
         )
 
         _ = st.download_button(
@@ -452,12 +324,11 @@ class RadarReporter(SubReporter):
         self, cnpj: str, total_eq: int, date_range: tuple[date, date]
     ):
         company_name = self.company_name(cnpj)
-        company_params = get_company_params(cnpj)
-        _inter, total_inter, inter_equip_count, mean_inter, dev_inter, top10equip = (
+        company_params = format_params_message(cnpj)
+        inter, total_inter, inter_equip_count, mean_inter, dev_inter, top_equips = (
             eval_interruptions(cnpj, date_range)
         )
-        _topequip = top10equip.copy()
-        top10equip = top10equip.head(10)
+        top10equip = top_equips.head(10)
         if total_eq == inter_equip_count:
             inter_equip_count = "todos"
         self.md("#### Avaliação dos parâmetros operacionais")
@@ -469,12 +340,13 @@ class RadarReporter(SubReporter):
         self.md(msg)
         self.md(company_params)
 
-        evalued_params = eval_params(company_name, date_range)
+        evalued_params = eval_params(cnpj, date_range)
 
-        self.show_table(evalued_params.set_index("Mês"))
+        eval_params_pd = evalued_params.to_pandas()
+        self.show_table(eval_params_pd.set_index("Mês"))
         _ = st.download_button(
             "Baixar tabela resumo",
-            data=dataframe_to_csv(evalued_params),
+            data=dataframe_to_csv(eval_params_pd),
             file_name=f"radares_resumo_parametros_{cnpj}.csv",
             mime="text/csv",
             icon=":material/download:",
@@ -495,12 +367,12 @@ class RadarReporter(SubReporter):
             """
         self.md(msg)
 
-        pd_table = top10equip.set_index(top10equip.columns[0])
-        self.show_df(pd_table)
+        top10equip_pd = top10equip.to_pandas()
+        self.show_df(top10equip_pd.set_index(top10equip.columns[0]))
 
         _ = st.download_button(
             "Baixar tabela completa",
-            data=dataframe_to_csv(_topequip),
+            data=dataframe_to_csv(top10equip_pd),
             file_name=f"radares_interrupcoes_por_equipamento_{cnpj}.csv",
             mime="text/csv",
             icon=":material/download:",
@@ -509,7 +381,7 @@ class RadarReporter(SubReporter):
 
         _ = st.download_button(
             "Baixar tabela de interrupções",
-            data=dataframe_to_csv(_inter),
+            data=dataframe_to_csv(inter.to_pandas()),
             file_name=f"radares_interrupcoes_{cnpj}.csv",
             mime="text/csv",
             icon=":material/download:",
@@ -533,9 +405,13 @@ class RadarReporter(SubReporter):
             * {count_equip_anom} apresentaram ao menos uma ocorrência de velocidade anômala.
             * {count_mean_anom} apresentaram média de velocidade fora dos limites aceitáveis, dispostos na tabela abaixo.
         """)
-        self.show_df(anom_fmt.set_index(anom_fmt.columns[0]))
-        _ = st.button(
+        anom_fmt_pd = anom_fmt.to_pandas()
+        self.show_df(anom_fmt_pd.set_index(anom_fmt.columns[0]))
+        _ = st.download_button(
             "Baixar tabela de aparelhos anômalos",
+            data=dataframe_to_csv(anom_fmt_pd),
+            file_name=f"radares_aparelhos_anomalos_{cnpj}.csv",
+            mime="text/csv",
             icon=":material/download:",
             key=f"download_anomalous_devices_{cnpj}",
         )
@@ -544,8 +420,9 @@ class RadarReporter(SubReporter):
             em amarelo, os aparelhos que registaram anomalias ao menos uma vez;
             em vermelho, os aparelhos que apresentam média anômala.
         """)
-        map_data = anomForMap.copy()
+        map_data = anomForMap.to_pandas().copy()
         map_data["count"] = map_data["QT_CONTAGEM"] / 100
+        map_data["color"] = [(r, g, b, a) for (r, g, b, a) in map_data["color"]]
         _ = st.map(
             map_data,
             size="count",
@@ -553,21 +430,26 @@ class RadarReporter(SubReporter):
             longitude="CG_LONGITUDE",
             color="color",
         )
+        anomForMapPD = anomForMap.to_pandas()
         self.append_point_map_snapshot(
-            anomForMap["CG_LATITUDE"],
-            anomForMap["CG_LONGITUDE"],
-            anomForMap["QT_CONTAGEM"],
-            anomForMap["med_anom"],
+            anomForMapPD["CG_LATITUDE"],
+            anomForMapPD["CG_LONGITUDE"],
+            anomForMapPD["QT_CONTAGEM"],
+            anomForMapPD["med_anom"],
         )
-        map_details = anomForMap.drop(columns=["color"]).rename(
-            columns={
-                "CD_RADAR": "Código do equipamento",
-                "NO_RADAR": "Nome do equipamento",
-                "CG_LATITUDE": "Latitude",
-                "CG_LONGITUDE": "Longitude",
-                "QT_CONTAGEM": "Registros analisados",
-                "med_anom": "Média anômala",
-            }
+        map_details = (
+            anomForMap.to_pandas()
+            .drop(columns=["color"])
+            .rename(
+                columns={
+                    "CD_RADAR": "Código do equipamento",
+                    "NO_RADAR": "Nome do equipamento",
+                    "CG_LATITUDE": "Latitude",
+                    "CG_LONGITUDE": "Longitude",
+                    "QT_CONTAGEM": "Registros analisados",
+                    "med_anom": "Média anômala",
+                }
+            )
         )
         map_details["Média anômala"] = map_details["Média anômala"].map(
             {True: "Sim", False: "Não"}

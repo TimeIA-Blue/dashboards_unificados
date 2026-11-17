@@ -1,0 +1,23 @@
+-- IN parameters: cnpj (string), date_start (string#date), date_end (string#date)
+-- OUT fields:
+--  CD_RADAR (int), DT_MES (string#date),
+--  CG_LATITUDE (float), CG_LONGITUDE (float), NO_RADAR (string),
+--  VL_VELOCIDADE_MEDIA (float), VL_VELOCIDADE_MINIMA (float),
+--  VL_VELOCIDADE_MAXIMA (float), QT_CONTAGEM_ACIMA_LIMITE (int),
+--  QT_CONTAGEM (int)
+SELECT
+    CD_RADAR,
+    DT_MES,
+    info.CG_LATITUDE,
+    info.CG_LONGITUDE,
+    info.NO_RADAR,
+    avgMerge(VL_VELOCIDADE_MEDIA) AS VL_VELOCIDADE_MEDIA,
+    minMerge(VL_VELOCIDADE_MINIMA) AS VL_VELOCIDADE_MINIMA,
+    maxMerge(VL_VELOCIDADE_MAXIMA) AS VL_VELOCIDADE_MAXIMA,
+    countIfMerge(QT_CONTAGEM_ACIMA_LIMITE) AS QT_CONTAGEM_ACIMA_LIMITE,
+    countMerge(QT_CONTAGEM) AS QT_CONTAGEM
+FROM BD_ANALYTICS_SIR.MV_RADAR_VELOCIDADES rv
+INNER JOIN BD_ANALYTICS_SIR.V_RADAR_INFO info
+ON rv.CD_RADAR = info.CD_RADAR
+WHERE NU_CNPJ = '{cnpj}' AND DT_MES BETWEEN '{date_start}' AND '{date_end}'
+GROUP BY ALL
