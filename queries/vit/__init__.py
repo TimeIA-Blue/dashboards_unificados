@@ -1,159 +1,185 @@
-from collections import defaultdict
 from datetime import date
 from pathlib import Path
 from typing import Final, TypedDict
 
-import numpy as np
-import pandas as pd
+import polars as pl
 import streamlit as st
 
 from client import ch_client
-from spotfire.vit import vit_data_function_tables
+from queries import get_query_result
 
 
 class VitQueries(TypedDict):
     get_total_count: Path
     """
+    :param cnpj (string), date_start (string#date), date_end (string#date)
+    :output DataFrame["QT_CONTAGEM" (int)]
+    """
+    get_seen_vehicle_counts: Path
+    """
+    :param none
+    :output DataFrame["NU_CNPJ" (string), "QT_VISTO" (int)]
+    """
+    get_vehicle_dates: Path
+    """
+    :param none
+    :output DataFrame["NU_CNPJ" (string), "start_date" (date), "end_date" (date)]
+    """
+    get_daily_data: Path
+    """
+    :param cnpj (string), date_start (string#date), date_end (string#date)
+    :output DataFrame["NU_CNPJ" (string), "DT_DIA" (date), "QT_CONTAGEM" (int)]
+    """
+    get_points: Path
+    """
+    :param cnpj (string), date_start (string#date), date_end (string#date)
+    :output DataFrame[
+        "NO_PONTO" (string), "DS_TIPO_PONTO" (string),
+        "CG_LATITUDE" (float), "CG_LONGITUDE" (float),
+        "QT_CONTAGEM" (int)
+    ]
+    """
+    get_vit_params: Path
+    """
     :param cnpj (string)
-    :return : DataFrame["QT_CONTAGEM" (UInt64)]
+    :output DataFrame["VIT parameter fields for the latest deploy"]
+    """
+    get_all_coords: Path
+    """
+    :param none
+    :output DataFrame[
+        "NU_CNPJ" (string), "CD_PONTO" (int), "CG_LATITUDE" (float),
+        "CG_LONGITUDE" (float), "DS_TIPO_PONTO" (string)
+    ]
+    """
+    get_vehicle_intervals: Path
+    """
+    :param date_start (string#date), date_end (string#date)
+    :output DataFrame[
+        "NU_CNPJ" (string), "DS_PLACA" (string),
+        "DT_INSTANTE_ANTERIOR" (datetime), "VL_DELTA" (int),
+        "VL_DISTANCIA_KM" (float)
+    ]
+    """
+    get_delays: Path
+    """
+    :param date_start (string#date), date_end (string#date)
+    :output DataFrame[
+        "NU_CNPJ" (string), "DS_TIPO_PONTO" (string), "CD_PONTO" (int),
+        "NO_PONTO" (string), "CD_SENTIDO" (int), "NO_SENTIDO" (string),
+        "DT_INSTANTE_ANTERIOR" (datetime), "DT_INSTANTE" (datetime),
+        "DS_PLACA_ANTERIOR" (string), "DS_PLACA" (string), "VL_DELTA" (int)
+    ]
+    """
+    get_parameters: Path
+    """
+    :param none
+    :output DataFrame[
+        "NU_CNPJ" (string), "VL_INTERVALO" (float),
+        "VL_SOMA_QUATRO_ATRASOS" (float), "VL_VELOCIDADE_MEDIA" (float)
+    ]
+    """
+    get_monthly_counts: Path
+    """
+    :param none
+    :output DataFrame["NU_CNPJ" (string), "DT_MES" (string), "QT_CONTAGEM" (int)]
     """
 
 
 AVAILABLE_VIT_QUERIES: Final[VitQueries] = {
     "get_total_count": Path("queries", "vit", "get_total_count.sql"),
+    "get_seen_vehicle_counts": Path("queries", "vit", "get_seen_vehicle_counts.sql"),
+    "get_vehicle_dates": Path("queries", "vit", "get_vehicle_dates.sql"),
+    "get_daily_data": Path("queries", "vit", "get_daily_data.sql"),
+    "get_points": Path("queries", "vit", "get_points.sql"),
+    "get_vit_params": Path("queries", "vit", "get_vit_params.sql"),
+    "get_all_coords": Path("queries", "vit", "get_all_coords.sql"),
+    "get_vehicle_intervals": Path("queries", "vit", "get_vehicle_intervals.sql"),
+    "get_delays": Path("queries", "vit", "get_delays.sql"),
+    "get_parameters": Path("queries", "vit", "get_parameters.sql"),
+    "get_monthly_counts": Path("queries", "vit", "get_monthly_counts.sql"),
 }
 
 
-@st.cache_data(show_spinner=False)
-def load_vit_data():
-    loaded_client = ch_client()
-    genericas = loaded_client.query_df(
-        "SELECT DS_PLACA FROM BD_RAW_INTERNO.TB_PLACAS_GENERICAS"
-    )["DS_PLACA"].tolist()
-    Veiculos = loaded_client.query_df("SELECT * FROM BD_ANALYTICS_SIR.V_VIT_CADASTRO v")
-    Veiculos = Veiculos.drop(columns="NO_FANTASIA")
-    Veiculos = Veiculos[~Veiculos["DS_PLACA"].isin(genericas)]
-
-    # Contagens gerais
-    CountsGlobal = Veiculos.groupby("NU_CNPJ").size().reset_index(name="QT_CADASTRADO")
-    count_per = loaded_client.query_df(
-        "SELECT * FROM BD_ANALYTICS_SIR.V_QUANTIDADE_VITS"
-    )
-    count_per = count_per.drop(columns=["NO_FANTASIA"])
-    CountsGlobal = CountsGlobal.merge(count_per, how="left", on="NU_CNPJ")
-    count_geral = loaded_client.query_df(
-        "SELECT NU_CNPJ, COUNT(DISTINCT DS_PLACA) AS QT_VISTO FROM BD_ANALYTICS_SIR.MV_VIT_AVISTAMENTOS GROUP BY NU_CNPJ"
-    )
-    CountsGlobal = CountsGlobal.merge(count_geral, on="NU_CNPJ")
-
-    return Veiculos, CountsGlobal, count_per
-
-
 def get_vehicle_counts(cnpj: str):
-    _, CountsGlobal, count_per = load_vit_data()
-    count_per_cnpj = count_per.loc[count_per["NU_CNPJ"] == cnpj, "QT_VIT"]
-    CountsGlobal_cnpj = CountsGlobal.loc[CountsGlobal["NU_CNPJ"] == cnpj]
-    qtd_min = 0 if (len(count_per_cnpj) == 0) else count_per_cnpj.values[0]
+    client = ch_client()
+    generic_plates = pl.from_pandas(
+        client.query_df("SELECT DS_PLACA FROM BD_RAW_INTERNO.TB_PLACAS_GENERICAS")
+    )["DS_PLACA"].to_list()
+    vehicles = pl.from_pandas(
+        client.query_df("SELECT * FROM BD_ANALYTICS_SIR.V_VIT_CADASTRO")
+    ).drop("NO_FANTASIA")
+    vehicles = vehicles.filter(~pl.col("DS_PLACA").is_in(generic_plates))
+    counts_global = vehicles.group_by("NU_CNPJ").len(name="QT_CADASTRADO")
+    counts_per = pl.from_pandas(
+        client.query_df("SELECT * FROM BD_ANALYTICS_SIR.V_QUANTIDADE_VITS")
+    ).drop("NO_FANTASIA")
+    counts_global = counts_global.join(counts_per, how="left", on="NU_CNPJ")
+    counts_seen = get_query_result(
+        AVAILABLE_VIT_QUERIES["get_seen_vehicle_counts"], {}, use_polars=True
+    )
+    counts_global = counts_global.join(counts_seen, on="NU_CNPJ")
+
+    count_per_cnpj = counts_per.filter(pl.col("NU_CNPJ") == cnpj)
+    counts_global_cnpj = counts_global.filter(pl.col("NU_CNPJ") == cnpj)
+    qtd_min = count_per_cnpj["QT_VIT"][0] if not count_per_cnpj.is_empty() else 0
     qtd_cadastro = (
-        0
-        if (len(CountsGlobal_cnpj) == 0)
-        else CountsGlobal_cnpj["QT_CADASTRADO"].values[0]
+        counts_global_cnpj["QT_CADASTRADO"][0]
+        if not counts_global_cnpj.is_empty()
+        else 0
     )
     qtd_visto = (
-        0 if (len(CountsGlobal_cnpj) == 0) else CountsGlobal_cnpj["QT_VISTO"].values[0]
+        counts_global_cnpj["QT_VISTO"][0] if not counts_global_cnpj.is_empty() else 0
     )
     return qtd_min, qtd_cadastro, qtd_visto
 
 
-def get_dates(cnpj):
-    loaded_client = ch_client()
-    VitDates = loaded_client.query_df(
-        "SELECT NU_CNPJ, toDate(min(DT_INSTANTE)) AS start_date, toDate(max(DT_INSTANTE)) AS end_date FROM BD_ANALYTICS_SIR.MV_VIT_AVISTAMENTOS GROUP BY NU_CNPJ"
+def get_dates(cnpj: str):
+    vit_dates = get_query_result(
+        AVAILABLE_VIT_QUERIES["get_vehicle_dates"], {}, use_polars=True
     )
-    start_date = VitDates.loc[VitDates["cnpj"] == cnpj, "start_date"].values[0]
-    end_date = VitDates.loc[VitDates["cnpj"] == cnpj, "end_date"].values[0]
-
-    # format as DD/MM/YYYY
-    start_date = pd.to_datetime(start_date).strftime("%d/%m/%Y")
-    end_date = pd.to_datetime(end_date).strftime("%d/%m/%Y")
-
-    return start_date, end_date
-
-
-def get_daily_data(cnpj: str, min_day: str, max_day: str):
-    # Dados diários
-    loaded_client = ch_client()
-    VitDataDays = loaded_client.query_df(f"""
-    WITH
-        toDate('{min_day}') AS DT_DATA_INICIO,
-        toDate('{max_day}') AS DT_DATA_FIM,
-
-        date_range AS (
-            SELECT DT_DATA_INICIO + number AS DT_DIA
-            FROM system.numbers
-            WHERE number <= dateDiff('day', DT_DATA_INICIO, DT_DATA_FIM)
-        ),
-
-        companies AS (
-            SELECT DISTINCT NU_CNPJ
-            FROM BD_ANALYTICS_SIR.MV_VIT_AVISTAMENTOS
-            WHERE NU_CNPJ = '{cnpj}'
-        ),
-
-        -- counts per company per date
-        counts AS (
-            SELECT NU_CNPJ, toDate(DT_INSTANTE) AS DT_DIA, COUNT(DISTINCT DS_PLACA) AS QT_CONTAGEM
-            FROM BD_ANALYTICS_SIR.MV_VIT_AVISTAMENTOS
-            WHERE DT_INSTANTE BETWEEN DT_DATA_INICIO AND DT_DATA_FIM AND NU_CNPJ = '{cnpj}'
-            GROUP BY NU_CNPJ, DT_DIA
-        )
-        
-    SELECT
-        c.NU_CNPJ AS NU_CNPJ,
-        d.DT_DIA AS DT_DIA,
-        NULLIF(QT_CONTAGEM, 0) AS QT_CONTAGEM
-    FROM companies c
-    CROSS JOIN date_range d
-    LEFT JOIN counts t
-        ON c.NU_CNPJ = t.NU_CNPJ AND d.DT_DIA = t.DT_DIA
-    ORDER BY c.NU_CNPJ, d.DT_DIA
-    """)
-
-    VitDataDays["month"] = VitDataDays["DT_DIA"].dt.strftime("%Y-%m")
-
-    return VitDataDays
-
-
-def get_registered_vehicles(cnpj: str):
-    Veiculos, _, _ = load_vit_data()
-    vehicles = Veiculos[Veiculos["NU_CNPJ"] == cnpj].copy()
-    vehicles = vehicles.drop(columns=["NU_CNPJ"])
-    vehicles = vehicles.reset_index(drop=True)
-
-    return vehicles
-
-
-def get_vit_points(cnpj: str, date_range: tuple[date, date]):
-    start_date = date_range[0].strftime("%Y-%m-%d")
-    end_date = date_range[1].strftime("%Y-%m-%d")
-    loaded_client = ch_client()
-    points = loaded_client.query_df(
-        f"""
-        SELECT
-            NO_PONTO,
-            DS_TIPO_PONTO,
-            CG_LATITUDE,
-            CG_LONGITUDE,
-            COUNT(*) AS QT_CONTAGEM
-        FROM
-            BD_ANALYTICS_SIR.MV_VIT_AVISTAMENTOS
-        WHERE
-            NU_CNPJ = '{cnpj}' AND
-            DT_INSTANTE BETWEEN toDate('{start_date}') AND toDate('{end_date}')
-        GROUP BY ALL
-        ORDER BY QT_CONTAGEM DESC"""
+    dates = vit_dates.filter(pl.col("NU_CNPJ") == cnpj)
+    return (
+        dates["start_date"][0].strftime("%d/%m/%Y"),
+        dates["end_date"][0].strftime("%d/%m/%Y"),
     )
-    return points
+
+
+def get_daily_data(cnpj: str, min_day: str, max_day: str) -> pl.DataFrame:
+    vit_data_days = get_query_result(
+        AVAILABLE_VIT_QUERIES["get_daily_data"],
+        {"cnpj": cnpj, "date_start": min_day, "date_end": max_day},
+        use_polars=True,
+    )
+    return vit_data_days.with_columns(
+        pl.col("DT_DIA").dt.strftime("%Y-%m").alias("month")
+    )
+
+
+def get_registered_vehicles(cnpj: str) -> pl.DataFrame:
+    client = ch_client()
+    generic_plates = pl.from_pandas(
+        client.query_df("SELECT DS_PLACA FROM BD_RAW_INTERNO.TB_PLACAS_GENERICAS")
+    )["DS_PLACA"].to_list()
+    vehicles = pl.from_pandas(
+        client.query_df("SELECT * FROM BD_ANALYTICS_SIR.V_VIT_CADASTRO")
+    ).drop("NO_FANTASIA")
+    vehicles = vehicles.filter(
+        pl.col("NU_CNPJ").eq(cnpj) & ~pl.col("DS_PLACA").is_in(generic_plates)
+    )
+    return vehicles.drop("NU_CNPJ")
+
+
+def get_vit_points(cnpj: str, date_range: tuple[date, date]) -> pl.DataFrame:
+    return get_query_result(
+        AVAILABLE_VIT_QUERIES["get_points"],
+        {
+            "cnpj": cnpj,
+            "date_start": date_range[0].strftime("%Y-%m-%d"),
+            "date_end": date_range[1].strftime("%Y-%m-%d"),
+        },
+        use_polars=True,
+    )
 
 
 vit_params_desc = {
@@ -163,67 +189,25 @@ vit_params_desc = {
 }
 
 
-def get_vit_params(cnpj):
-    loaded_client = ch_client()
-    max_deploy = loaded_client.query_df(
-        f"SELECT MAX(deploy_id) AS max_id FROM BD_PER.TB_PARAMETROS_VIT WHERE cnpj = '{cnpj}'"
-    )["max_id"].values[0]
-    params = loaded_client.query_df(
-        f"SELECT * FROM BD_PER.TB_PARAMETROS_VIT WHERE cnpj = '{cnpj}' AND deploy_id = {max_deploy}"
+def get_vit_params(cnpj: str) -> pl.DataFrame:
+    params = get_query_result(
+        AVAILABLE_VIT_QUERIES["get_vit_params"],
+        {"cnpj": cnpj},
+        use_polars=True,
     )
 
-    md = ""
-    if not params["vel_med"].isnull().all():
-        md += f"- **Velocidade média (VMéd)**: {vit_params_desc['vel_med'].format(x=params['vel_med'].values[0])}\n"
-    if not params["soma_quatro_atrasos"].isnull().all():
-        md += f"- **Soma de quatro atrasos consecutivos (Σ4)**: {vit_params_desc['soma_quatro_atrasos'].format(x=params['soma_quatro_atrasos'].values[0])}\n"
-    if not params["it"].isnull().all():
-        md += f"- **Intervalo de tempo (IT)**: {vit_params_desc['it'].format(x=params['it'].values[0])}\n"
-
-    st.markdown(md)
-
+    messages = []
+    if params["vel_med"].null_count() < params.height:
+        messages.append(
+            f"- **Velocidade média (VMéd)**: {vit_params_desc['vel_med'].format(x=params['vel_med'][0])}"
+        )
+    if params["soma_quatro_atrasos"].null_count() < params.height:
+        messages.append(
+            f"- **Soma de quatro atrasos consecutivos (Σ4)**: {vit_params_desc['soma_quatro_atrasos'].format(x=params['soma_quatro_atrasos'][0])}"
+        )
+    if params["it"].null_count() < params.height:
+        messages.append(
+            f"- **Intervalo de tempo (IT)**: {vit_params_desc['it'].format(x=params['it'][0])}"
+        )
+    st.markdown("\n".join(messages))
     return params
-
-
-def get_company_eval(cnpj, date_range: tuple[date, date]):
-    df_atrasos, df_eval = vit_data_function_tables(date_range)
-    df_company = df_eval[df_eval["NU_CNPJ"] == cnpj].copy()
-
-    checks = {"none": [], "all": [], "partial": []}
-
-    months = defaultdict(list)
-
-    for index, row in df_company.iterrows():
-        if row["cumpriu"] == "Não":
-            months[row["DT_MES"]].append({"tipo_param": row["tipo"], "cumpriu": "Não"})
-            continue
-        if row["cumpriu"] == "Sim":
-            months[row["DT_MES"]].append({"tipo_param": row["tipo"], "cumpriu": "Sim"})
-            continue
-        if row["cumpriu"] == "-":
-            months[row["DT_MES"]].append({"tipo_param": row["tipo"], "cumpriu": "-"})
-            continue
-
-    for month, val in months.items():
-        # if all is Não, add to none
-        # elif if all is Sim, add to all
-        # else, add to partial
-        month_checks = [m["cumpriu"] for m in val]
-        if all(c == "Não" for c in month_checks):
-            checks["none"].append(month)
-            continue
-        if all(c == "Sim" for c in month_checks):
-            checks["all"].append(month)
-            continue
-        checks["partial"].append(month)
-
-    # formatting months as MM/YYYY
-    for key, value in checks.items():
-        checks[key] = [f"{m[5:7]}/{m[0:4]}" for m in value]
-
-    # pegando os dados de atrasos
-    atrasos = df_atrasos[df_atrasos["NU_CNPJ"] == cnpj].copy()
-    mean_atrasos = np.round(atrasos["atraso_mins"].mean(), 0).astype(int)
-    std_atrasos = np.round(atrasos["atraso_mins"].std(), 0).astype(int)
-
-    return df_company, checks, mean_atrasos, std_atrasos, atrasos

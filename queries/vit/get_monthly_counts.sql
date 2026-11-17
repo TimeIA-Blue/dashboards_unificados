@@ -1,0 +1,8 @@
+-- IN parameters: none
+-- OUT fields: NU_CNPJ, DT_MES, QT_CONTAGEM
+SELECT
+    NU_CNPJ,
+    formatDateTime(toStartOfMonth(DT_INSTANTE), '%Y-%m') AS DT_MES,
+    COUNT(*) AS QT_CONTAGEM
+FROM BD_ANALYTICS_SIR.MV_VIT_AVISTAMENTOS
+GROUP BY NU_CNPJ, DT_MES

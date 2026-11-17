@@ -1,17 +1,19 @@
 from datetime import date
 
+import polars as pl
 import streamlit as st
 
 from queries import get_query_result
 from queries.vit import (
     AVAILABLE_VIT_QUERIES,
-    get_company_eval,
     get_daily_data,
     get_registered_vehicles,
     get_vehicle_counts,
     get_vit_points,
 )
 from relatorio.reporter import SubReporter, SubReportSection
+from relatorio.vit.helpers import dataframe_to_csv
+from relatorio.vit.params import get_company_eval
 
 vit_eval_msg = {
     "none": "Não cumprimento (todos os parâmetros descumpridos)",
@@ -80,25 +82,26 @@ class VITReporter(SubReporter):
         vit_daily_data = get_daily_data(cnpj, start_date, end_date)
 
         _ = st.line_chart(
-            vit_daily_data.set_index("DT_DIA")["QT_CONTAGEM"],
+            vit_daily_data.to_pandas().set_index("DT_DIA")["QT_CONTAGEM"],
             height=300,
             width="stretch",
         )
 
         vehicles_table = get_registered_vehicles(cnpj)
         vehicles_table = vehicles_table.rename(
-            columns={
+            {
                 "DS_IDENTIFICADOR": "ID do veículo",
                 "DS_PLACA": "Placa",
                 "DS_TIPO_VEICULO": "Tipo do veículo",
                 "DS_SERVICO_PRIMARIO": "Serviço principal",
             }
         )
-        self.show_table(vehicles_table.set_index(vehicles_table.columns[0]))
+        vehicles_table_pd = vehicles_table.to_pandas()
+        self.show_table(vehicles_table_pd.set_index(vehicles_table_pd.columns[0]))
 
         _ = st.download_button(
             "Baixar relação de veículos cadastrados",
-            data=vehicles_table.to_csv(index=False).encode("utf-8"),
+            data=dataframe_to_csv(vehicles_table_pd),
             file_name=f"vit_veiculos_cadastrados_{cnpj}.csv",
             mime="text/csv",
             key=f"download_vit_vehicles_{cnpj}",
@@ -109,20 +112,25 @@ class VITReporter(SubReporter):
         Para detectar avistamentos de VIT, foram utilizados os pontos a seguir, dentre radadres (em :blue[azul]) e pedágios (em :orange[laranja]).
         """
 
-        vit_points = get_vit_points(cnpj, date_range)
-        vit_points["color"] = vit_points["DS_TIPO_PONTO"].apply(
-            lambda x: "#0000FF" if x == "Radar" else "#FFA500"
+        vit_points = get_vit_points(cnpj, date_range).with_columns(
+            pl.when(pl.col("DS_TIPO_PONTO") == "Radar")
+            .then(pl.lit("#0000FF"))
+            .otherwise(pl.lit("#FFA500"))
+            .alias("color")
         )
-        vit_points_map = vit_points[
+        vit_points_map = vit_points.select(
             ["CG_LATITUDE", "CG_LONGITUDE", "QT_CONTAGEM", "color"]
-        ].copy()
-        vit_points_map["QT_CONTAGEM"] = vit_points_map["QT_CONTAGEM"]
-        vit_points_df = vit_points[["NO_PONTO", "DS_TIPO_PONTO", "QT_CONTAGEM"]].rename(
-            columns={
-                "NO_PONTO": "Nome do ponto",
-                "DS_TIPO_PONTO": "Tipo do ponto",
-                "QT_CONTAGEM": "Número de avistamentos",
-            }
+        ).to_pandas()
+        vit_points_df = (
+            vit_points.select(["NO_PONTO", "DS_TIPO_PONTO", "QT_CONTAGEM"])
+            .rename(
+                {
+                    "NO_PONTO": "Nome do ponto",
+                    "DS_TIPO_PONTO": "Tipo do ponto",
+                    "QT_CONTAGEM": "Número de avistamentos",
+                }
+            )
+            .to_pandas()
         )
         self.md(msg_2)
         self._current_report_html.append(f"<p>{msg_2}</p>")
@@ -143,7 +151,7 @@ class VITReporter(SubReporter):
 
         _ = st.download_button(
             "Baixar relação de pontos de avistamento de VIT",
-            data=vit_points_df.to_csv(index=False).encode("utf-8"),
+            data=dataframe_to_csv(vit_points_df),
             file_name=f"vit_pontos_observacao_{cnpj}.csv",
             mime="text/csv",
             key=f"download_vit_points_{cnpj}",
@@ -180,64 +188,72 @@ class VITReporter(SubReporter):
         self.md(eval_msg)
 
         # replace "-" with "Sem dados"
-        vit_eval["cumpriu"] = vit_eval["cumpriu"].replace("-", "Sem dados")
-        vit_eval["cumpriu"] = vit_eval["cumpriu"].fillna(vit_eval["ST_CUMPRIMENTO"])
-
-        vit_eval_table = (
-            vit_eval.rename(
-                columns={
-                    "DT_MES": "Mês",
-                    "tipo": "Tipo de parâmetro",
-                    "cumpriu": "Cumprimento",
-                    "VL_VALOR": "Valor obtido",
-                    "VL_VALOR_ESPERADO": "Valor esperado",
-                }
-            )
-            .drop(columns=["NU_CNPJ", "ST_CUMPRIMENTO"])
-            .set_index(["Mês", "Tipo de parâmetro"])
+        vit_eval = vit_eval.with_columns(
+            pl.when(pl.col("cumpriu") == "-")
+            .then(pl.lit("Sem dados"))
+            .otherwise(pl.col("cumpriu"))
+            .fill_null(pl.col("cumpriu"))
+            .alias("cumpriu")
         )
 
-        self.show_table(vit_eval_table)
+        vit_eval_table = vit_eval.rename(
+            {
+                "DT_MES": "Mês",
+                "tipo": "Tipo de parâmetro",
+                "cumpriu": "Cumprimento",
+                "VL_VALOR": "Valor obtido",
+                "VL_VALOR_ESPERADO": "Valor esperado",
+            }
+        ).drop(["NU_CNPJ"])
+        vit_eval_table_pd = vit_eval_table.to_pandas().set_index(
+            ["Mês", "Tipo de parâmetro"]
+        )
+
+        self.show_table(vit_eval_table_pd)
 
         _ = st.download_button(
             "Baixar avaliação dos parâmetros operacionais",
-            data=vit_eval_table.to_csv().encode("utf-8"),
+            data=dataframe_to_csv(vit_eval_table_pd.reset_index()),
             file_name=f"vit_parametros_operacionais_{cnpj}.csv",
             mime="text/csv",
             key=f"download_vit_params_eval_{cnpj}",
             icon=":material/download:",
         )
 
-        atrasos_to_download = atrasos_full.drop(
-            columns=[
-                "NU_CNPJ",
-                "CD_PONTO_x",
-                "CD_PONTO_y",
-                "CD_SENTIDO",
-                "VL_DELTA",
-                "VL_INTERVALO",
-                "VL_INTERVALO_SEGUNDOS",
-                "VL_ATRASO_SEGUNDOS",
-                "fantasia",
-            ]
-        ).rename(
-            columns={
-                "DS_TIPO_PONTO": "Tipo do Ponto",
-                "NO_PONTO": "Nome do ponto",
-                "NO_SENTIDO": "Sentido",
-                "DT_INSTANTE_ANTERIOR": "Início do intervalo",
-                "DT_INSTANTE": "Fim do intervalo",
-                "DS_PLACA_ANTERIOR": "Placa do VIT inicial",
-                "DS_PLACA": "Placa do VIT final",
-                "atraso_mins": "Minutos de atraso",
-                "CG_LATITUDE": "Latitude",
-                "CG_LONGITUDE": "Longitude",
-            }
+        atrasos_to_download = (
+            atrasos_full.drop(
+                [
+                    "NU_CNPJ",
+                    "CD_PONTO",
+                    "CD_PONTO_right",
+                    "CD_SENTIDO",
+                    "VL_DELTA",
+                    "VL_INTERVALO",
+                    "VL_INTERVALO_SEGUNDOS",
+                    "VL_ATRASO_SEGUNDOS",
+                    "fantasia",
+                ]
+            )
+            .rename(
+                {
+                    "DS_TIPO_PONTO": "Tipo do Ponto",
+                    "NO_PONTO": "Nome do ponto",
+                    "NO_SENTIDO": "Sentido",
+                    "DT_INSTANTE_ANTERIOR": "Início do intervalo",
+                    "DT_INSTANTE": "Fim do intervalo",
+                    "DS_PLACA_ANTERIOR": "Placa do VIT inicial",
+                    "DS_PLACA": "Placa do VIT final",
+                    "atraso_mins": "Minutos de atraso",
+                    "CG_LATITUDE": "Latitude",
+                    "CG_LONGITUDE": "Longitude",
+                }
+            )
+            .to_pandas()
         )
 
         _ = st.download_button(
             "Baixar relação de todos os atrasos",
-            data=atrasos_to_download.to_csv(index=False).encode("utf-8"),
+            data=dataframe_to_csv(atrasos_to_download),
             file_name=f"vit_atrasos_{cnpj}.csv",
             mime="text/csv",
             key=f"download_vit_all_eval_{cnpj}",
