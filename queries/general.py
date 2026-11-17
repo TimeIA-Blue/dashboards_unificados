@@ -1,3 +1,7 @@
+import streamlit as st
+
+from client import ch_client
+
 AVAILABLE_COMPANIES_QUERY = """
 SELECT * FROM
 (
@@ -31,3 +35,17 @@ WHERE DS_NOME_PARAMETRO = 'DT_DATA_FIM'
 ORDER BY CD_DEPLOY_ID DESCENDING
 LIMIT 1
 """
+
+
+@st.cache_data(ttl=21600)
+def get_company_names():
+    client = ch_client()
+    company_names = (
+        client.query_df("SELECT * FROM BD_PER.TB_PARAMETROS_CONCESSIONARIAS")
+        .set_index("NU_CNPJ")
+        .to_dict(orient="index")
+    )
+    company_names = {
+        k: v["NO_FANTASIA"] for k, v in company_names.items() if k is not None
+    }
+    return company_names
